@@ -54,6 +54,9 @@ struct Data {
 /// identity with a Matrix user.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Session {
+	/// Verified upstream session, captured before user-level session replacement.
+	#[serde(default)]
+	pub sso_binding: Option<super::backchannel::Binding>,
 	/// Identity Provider ID (the `client_id` in the configuration) associated
 	/// with this session.
 	pub idp_id: Option<String>,

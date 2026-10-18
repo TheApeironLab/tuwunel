@@ -1,3 +1,4 @@
+pub mod backchannel;
 pub mod providers;
 pub mod server;
 pub mod sessions;
@@ -45,6 +46,7 @@ use crate::{SelfServices, client::read_response_capped};
 type Ratelimiter = Mutex<HashMap<IpAddr, (Instant, f64)>>;
 
 pub struct Service {
+	pub backchannel: backchannel::Backchannel,
 	services: SelfServices,
 	pub providers: Arc<Providers>,
 	pub sessions: Arc<Sessions>,
@@ -60,6 +62,7 @@ impl crate::Service for Service {
 		let server = Server::build(args)?.map(Arc::new);
 
 		Ok(Arc::new(Self {
+			backchannel: backchannel::Backchannel::build(args),
 			services: args.services.clone(),
 			sessions,
 			providers,
@@ -69,7 +72,9 @@ impl crate::Service for Service {
 		}))
 	}
 
-	fn name(&self) -> &str { crate::service::make_name(std::module_path!()) }
+	fn name(&self) -> &str {
+		crate::service::make_name(std::module_path!())
+	}
 }
 
 #[implement(Service)]

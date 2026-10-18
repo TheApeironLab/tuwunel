@@ -429,6 +429,11 @@ pub(crate) async fn sso_callback_route(
 			})
 		})?;
 
+	let sso_binding = services
+		.oauth
+		.binding_from_session(&provider, &session, &userinfo.sub)
+		.await?;
+	let session = Session { sso_binding, ..session };
 	let unique_id = unique_id_sub((&provider, &userinfo.sub))?;
 
 	let complete_identity = async |old_user_id: Option<OwnedUserId>| {
@@ -452,10 +457,11 @@ pub(crate) async fn sso_callback_route(
 				| true => "sso",
 				// Present in LDAP is an existing user to provision, not a new registration.
 				| false if ldap_user_exists(&services, &user_id).await => "ldap",
-				| false =>
+				| false => {
 					return Err!(Request(Forbidden(
 						"Registration from this provider is disabled"
-					))),
+					)));
+				},
 			};
 
 			register_user(&services, &provider, &session, &userinfo, &user_id, origin).await?;
@@ -596,6 +602,13 @@ fn finalize_login_redirect(
 	let _login_token_expires_in = services
 		.users
 		.create_login_token(user_id, &login_token);
+
+	if let Some(binding) = session.sso_binding.as_ref() {
+		services
+			.oauth
+			.backchannel
+			.put_grant(&login_token, binding);
+	}
 
 	let location = next_idp_url
 		.or_else(|| session.redirect_url.clone())

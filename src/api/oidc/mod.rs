@@ -2,6 +2,7 @@ pub(super) mod account;
 pub(super) mod auth_issuer;
 pub(super) mod auth_metadata;
 pub(super) mod authorize;
+pub(super) mod backchannel;
 pub(super) mod complete;
 pub(super) mod device;
 pub(super) mod jwks;
