@@ -23,6 +23,12 @@ pub(crate) async fn refresh_token_route(
 	body: Ruma<Request>,
 ) -> Result<Response> {
 	let refresh_token_claim = body.body.refresh_token;
+	services.oauth.backchannel.token_binding(&refresh_token_claim).await.map_err(|_| {
+		Error::BadRequest(
+			ErrorKind::UnknownToken(UnknownTokenErrorData { soft_logout: false }),
+			"SSO session ended; sign in again.",
+		)
+	})?;
 
 	if !refresh_token_claim.starts_with("refresh_") {
 		return Err!(Request(Forbidden("Refresh token is malformed.")));
@@ -54,6 +60,11 @@ pub(crate) async fn refresh_token_route(
 
 			let refresh_token = Some(generate_refresh_token());
 			let (access_token, expires_in_ms) = services.users.generate_access_token(true);
+			services
+				.oauth
+				.backchannel
+				.inherit(&refresh_token_claim, &access_token, refresh_token.as_deref())
+				.await?;
 
 			services
 				.users
@@ -79,6 +90,11 @@ pub(crate) async fn refresh_token_route(
 			// Benign double-submit: re-issue an access token for the unchanged
 			// refresh token rather than rotating it.
 			let (access_token, expires_in_ms) = services.users.generate_access_token(true);
+			services
+				.oauth
+				.backchannel
+				.inherit(&refresh_token_claim, &access_token, None)
+				.await?;
 
 			services
 				.users

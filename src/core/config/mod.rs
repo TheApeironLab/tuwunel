@@ -105,6 +105,11 @@ pub type ServerUserLocalpart = SmallString<[u8; 32]>;
 	forbidden = "database_restore_backup force_migration"
 )]
 pub struct Config {
+	/// Require human tokens to carry a verified upstream SSO session.
+	/// Enabling requires existing users to sign in again; appservice tokens are unaffected.
+	#[serde(default)]
+	pub sso_require_session_binding: bool,
+
 	/// The server_name is the pretty name of this server. It is used as a
 	/// suffix for user and room IDs/aliases.
 	///

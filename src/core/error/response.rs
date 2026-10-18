@@ -16,6 +16,23 @@ use crate::error;
 impl axum::response::IntoResponse for Error {
 	fn into_response(self) -> axum::response::Response {
 		let response: UiaaResponse = self.into();
+		// Make hard logout explicit on the wire. Ruma omits false by default;
+		// clients must clear the revoked session instead of offering soft login.
+		if let UiaaResponse::MatrixError(error) = &response
+			&& let ErrorBody::Standard(StandardErrorBody {
+				kind: ErrorKind::UnknownToken(data),
+				message,
+			}) = &error.body
+			&& !data.soft_logout
+		{
+			return (
+				error.status_code,
+				axum::Json(serde_json::json!({
+					"errcode": "M_UNKNOWN_TOKEN", "error": message, "soft_logout": false,
+				})),
+			)
+				.into_response();
+		}
 		response
 			.try_into_http_response::<BytesMut>()
 			.inspect_err(|e| error!("error response error: {e}"))

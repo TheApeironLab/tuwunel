@@ -46,6 +46,7 @@ pub(crate) struct TokenRequest {
 
 /// An authenticated grant ready to mint tokens.
 struct ApprovedGrant<'a> {
+	binding: Option<tuwunel_service::oauth::backchannel::Binding>,
 	client_id: &'a str,
 	scope: &'a str,
 	user_id: &'a UserId,
@@ -72,10 +73,11 @@ pub(crate) async fn token_route(
 				.await
 				.unwrap_or_else(token_error_response),
 
-			| "urn:ietf:params:oauth:grant-type:device_code" =>
+			| "urn:ietf:params:oauth:grant-type:device_code" => {
 				token_device_code(&services, &body)
 					.await
-					.unwrap_or_else(token_error_response),
+					.unwrap_or_else(token_error_response)
+			},
 
 			| _ => oauth_error(
 				StatusCode::BAD_REQUEST,
@@ -122,13 +124,21 @@ async fn token_authorization_code(
 		)
 		.await?;
 
-	issue_tokens(services, ApprovedGrant {
-		client_id: &session.client_id,
-		scope: &session.scope,
-		user_id: &session.user_id,
-		nonce: session.nonce,
-		idp_id: session.idp_id,
-	})
+	issue_tokens(
+		services,
+		ApprovedGrant {
+			binding: services
+				.oauth
+				.backchannel
+				.take_grant(code)
+				.await?,
+			client_id: &session.client_id,
+			scope: &session.scope,
+			user_id: &session.user_id,
+			nonce: session.nonce,
+			idp_id: session.idp_id,
+		},
+	)
 	.await
 }
 
@@ -169,22 +179,39 @@ async fn token_device_code(services: &Services, body: &TokenRequest) -> Result<R
 			"The device code has expired",
 		)),
 
-		| DeviceGrantPoll::Approved(grant) =>
-			issue_tokens(services, ApprovedGrant {
-				client_id: &grant.client_id,
-				scope: &grant.scope,
-				user_id: &grant.user_id,
-				nonce: None,
-				idp_id: grant.idp_id,
-			})
-			.await,
+		| DeviceGrantPoll::Approved(grant) => {
+			issue_tokens(
+				services,
+				ApprovedGrant {
+					binding: None,
+					client_id: &grant.client_id,
+					scope: &grant.scope,
+					user_id: &grant.user_id,
+					nonce: None,
+					idp_id: grant.idp_id,
+				},
+			)
+			.await
+		},
 	}
 }
 
 /// Mint the access token, refresh token and device for an authenticated grant,
 /// honoring the MSC2967 device scope and emitting the OAuth token response.
 async fn issue_tokens(services: &Services, grant: ApprovedGrant<'_>) -> Result<Response<Body>> {
-	let ApprovedGrant { client_id, scope, user_id, nonce, idp_id } = grant;
+	let ApprovedGrant {
+		client_id,
+		scope,
+		user_id,
+		nonce,
+		idp_id,
+		binding,
+	} = grant;
+	services
+		.oauth
+		.backchannel
+		.check_optional(binding.as_ref())
+		.await?;
 
 	let (granted_scope, requested_device_id) =
 		narrow_scope(scope, services.server.config.oidc_strict_scope)?;
@@ -233,6 +260,11 @@ async fn issue_tokens(services: &Services, grant: ApprovedGrant<'_>) -> Result<R
 		})
 		.transpose()?;
 
+	services
+		.oauth
+		.backchannel
+		.bind_tokens(binding.as_ref(), &access_token, Some(&refresh_token))
+		.await?;
 	let device_id = services
 		.users
 		.create_device(
@@ -253,6 +285,11 @@ async fn issue_tokens(services: &Services, grant: ApprovedGrant<'_>) -> Result<R
 			.mark_oidc_device(user_id, &device_id, &idp_id);
 	}
 
+	services
+		.oauth
+		.backchannel
+		.check_optional(binding.as_ref())
+		.await?;
 	info!("{user_id} logged in via OIDC on {device_id} ({device_display_name})");
 
 	// MSC2967: echo a server-chosen device id back in the scope when the client
@@ -317,6 +354,11 @@ async fn token_refresh(services: &Services, body: &TokenRequest) -> Result<Respo
 			let (access_token, expires_in) = services.users.generate_access_token(true);
 			let refresh_token = generate_refresh_token();
 			services
+				.oauth
+				.backchannel
+				.inherit(presented, &access_token, Some(&refresh_token))
+				.await?;
+			services
 				.users
 				.set_access_token(
 					&user_id,
@@ -334,6 +376,11 @@ async fn token_refresh(services: &Services, body: &TokenRequest) -> Result<Respo
 			// Benign double-submit: re-issue an access token for the unchanged
 			// refresh token rather than rotating it.
 			let (access_token, expires_in) = services.users.generate_access_token(true);
+			services
+				.oauth
+				.backchannel
+				.inherit(presented, &access_token, None)
+				.await?;
 			services
 				.users
 				.set_access_token(&user_id, &device_id, &access_token, expires_in, None)

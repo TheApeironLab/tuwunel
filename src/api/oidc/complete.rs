@@ -137,7 +137,9 @@ async fn handle_approval(
 /// Only the exact `approve` action does. The Deny button, an unknown action and
 /// a submission carrying no action at all are all refusals, so a form this
 /// server did not write cannot talk its way into a code.
-fn approved(action: Option<&str>) -> bool { action == Some("approve") }
+fn approved(action: Option<&str>) -> bool {
+	action == Some("approve")
+}
 
 impl Approval<'_> {
 	/// Render the approval prompt.
@@ -252,7 +254,18 @@ async fn release_code(
 	oidc.remove_auth_request(&params.oidc_req_id);
 
 	let user_id = consume_login_token(services, Some(&params.login_token)).await?;
+	let binding = services
+		.oauth
+		.backchannel
+		.take_grant(&params.login_token)
+		.await?;
 	let code = oidc.create_auth_code(auth_req, user_id);
+	if let Some(binding) = binding.as_ref() {
+		services
+			.oauth
+			.backchannel
+			.put_grant(&code, binding);
+	}
 	let redirect_url = code_redirect(redirect_url, auth_req, &code);
 	let html = if needs_interstitial(&redirect_url, native) {
 		complete_continue_html(redirect_url.as_str())

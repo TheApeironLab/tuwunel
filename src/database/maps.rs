@@ -36,7 +36,9 @@ pub(super) type MapsVal = Arc<Map>;
 ///
 /// The returned index contains only descriptors that are live and present in
 /// the opened database. Individual map handles share the supplied engine.
-pub(super) fn open(engine: &Arc<Engine>) -> Result<Maps> { open_list(engine, MAPS) }
+pub(super) fn open(engine: &Arc<Engine>) -> Result<Maps> {
+	open_list(engine, MAPS)
+}
 
 /// Opens maps from an explicit descriptor list.
 ///
@@ -64,6 +66,18 @@ pub(crate) fn descriptor(name: &str) -> &'static Descriptor {
 /// optional per-map overrides. Dropped descriptors remain as migration
 /// tombstones but are not opened for use.
 pub(super) static MAPS: &[Descriptor] = &[
+	Descriptor {
+		name: "ssogrant_binding",
+		..descriptor::RANDOM_SMALL
+	},
+	Descriptor {
+		name: "ssotoken_binding",
+		..descriptor::RANDOM_SMALL
+	},
+	Descriptor {
+		name: "ssosession_revoked",
+		..descriptor::RANDOM_SMALL
+	},
 	Descriptor {
 		name: "alias_roomid",
 		..descriptor::RANDOM_SMALL

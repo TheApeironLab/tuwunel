@@ -18,6 +18,11 @@
 
 [global]
 
+# Require human tokens to carry a verified upstream SSO session.
+# Enabling requires existing users to sign in again; appservice tokens are unaffected.
+#
+#sso_require_session_binding = false
+
 # The server_name is the pretty name of this server. It is used as a
 # suffix for user and room IDs/aliases.
 #

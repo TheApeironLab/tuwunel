@@ -35,6 +35,7 @@
 - [Authentication](authentication.md)
   - [Legacy Registration](authentication/legacy.md)
   - [OIDC Authorization](authentication/oidc-server.md)
+  - [SSO Session Logout](authentication/sso-backchannel.md)
   - [QR Code Login](authentication/qr-login.md)
   - [LDAP Delegation](authentication/ldap.md)
   - [Enterprise JWT](authentication/jwt.md)

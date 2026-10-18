@@ -126,18 +126,36 @@ pub(crate) async fn login_route(
 	body: Ruma<login::v3::Request>,
 ) -> Result<login::v3::Response> {
 	let user_id = match &body.login_info {
-		| LoginInfo::Password(info) if services.config.login_with_password =>
-			password::handle_login(&services, &body, info).await?,
+		| LoginInfo::Password(info) if services.config.login_with_password => {
+			password::handle_login(&services, &body, info).await?
+		},
 		| LoginInfo::Token(info) => token::handle_login(&services, &body, info).await?,
-		| LoginInfo::Jwt(info) if services.config.jwt.enable =>
-			jwt::handle_login(&services, &body, info).await?,
-		| LoginInfo::ApplicationService(info) =>
-			appservice::handle_login(&services, &body, info)?,
+		| LoginInfo::Jwt(info) if services.config.jwt.enable => {
+			jwt::handle_login(&services, &body, info).await?
+		},
+		| LoginInfo::ApplicationService(info) => {
+			appservice::handle_login(&services, &body, info)?
+		},
 		| _ => {
 			return Err!(Request(Unknown(debug_warn!("Invalid or unsupported login type"))));
 		},
 	};
 
+	let binding = match &body.login_info {
+		| LoginInfo::Token(info) => {
+			services
+				.oauth
+				.backchannel
+				.take_grant(&info.token)
+				.await?
+		},
+		| _ => None,
+	};
+	services
+		.oauth
+		.backchannel
+		.check_optional(binding.as_ref())
+		.await?;
 	services.users.locked_check(&user_id).await?;
 
 	let (access_token, expires_in) = services
@@ -146,6 +164,11 @@ pub(crate) async fn login_route(
 
 	let refresh_token = expires_in.is_some().then(generate_refresh_token);
 
+	services
+		.oauth
+		.backchannel
+		.bind_tokens(binding.as_ref(), &access_token, refresh_token.as_deref())
+		.await?;
 	let device_id = if let Some(device_id) = &body.device_id
 		&& services
 			.users

@@ -61,12 +61,16 @@ pub async fn create_device(
 	}
 
 	let notify = true;
-	self.put_device_metadata(user_id, notify, &Device {
-		device_id: device_id.clone(),
-		display_name: initial_device_display_name.map(Into::into),
-		last_seen_ts: Some(MilliSecondsSinceUnixEpoch::now()),
-		last_seen_ip: client_ip.map(to_small_string),
-	})
+	self.put_device_metadata(
+		user_id,
+		notify,
+		&Device {
+			device_id: device_id.clone(),
+			display_name: initial_device_display_name.map(Into::into),
+			last_seen_ts: Some(MilliSecondsSinceUnixEpoch::now()),
+			last_seen_ip: client_ip.map(to_small_string),
+		},
+	)
 	.await;
 
 	if let Some(access_token) = access_token {
@@ -169,6 +173,19 @@ pub async fn find_from_token(
 	&self,
 	token: &str,
 ) -> Result<(OwnedUserId, OwnedDeviceId, Option<SystemTime>)> {
+	self.services
+		.oauth
+		.backchannel
+		.token_binding(token)
+		.await
+		.map_err(|_| {
+			tuwunel_core::Error::BadRequest(
+				ruma::api::error::ErrorKind::UnknownToken(
+					ruma::api::error::UnknownTokenErrorData { soft_logout: false },
+				),
+				"SSO session ended; sign in again.",
+			)
+		})?;
 	self.db
 		.token_userdeviceid
 		.get(token)
@@ -510,6 +527,16 @@ pub enum RefreshToken {
 /// Classify a presented refresh token for the token-endpoint rotation path.
 #[implement(super::Service)]
 pub async fn classify_refresh_token(&self, presented: &str) -> RefreshToken {
+	if self
+		.services
+		.oauth
+		.backchannel
+		.token_binding(presented)
+		.await
+		.is_err()
+	{
+		return RefreshToken::Unknown;
+	}
 	// The current refresh token resolves and matches the device's active
 	// pointer (an access token resolves but will not match).
 	if let Ok((user_id, device_id, expires_at)) = self.find_from_token(presented).await {
@@ -568,7 +595,9 @@ pub async fn classify_refresh_token(&self, presented: &str) -> RefreshToken {
 }
 
 #[must_use]
-pub fn generate_refresh_token() -> String { format!("refresh_{}", random_string(TOKEN_LENGTH)) }
+pub fn generate_refresh_token() -> String {
+	format!("refresh_{}", random_string(TOKEN_LENGTH))
+}
 
 #[implement(super::Service)]
 pub fn add_to_device_event(

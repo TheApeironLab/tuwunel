@@ -199,3 +199,26 @@ fn matrix_error(error: Error) -> RumaError {
 
 	error
 }
+
+#[tokio::test]
+async fn hard_and_soft_logout_are_explicit_on_the_wire() {
+	use axum::response::IntoResponse;
+	use http_body_util::BodyExt;
+	for soft_logout in [false, true] {
+		let error = Error::BadRequest(
+			ErrorKind::UnknownToken(UnknownTokenErrorData { soft_logout }),
+			"Session ended.",
+		);
+		let response = error.into_response();
+		assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+		let bytes = response
+			.into_body()
+			.collect()
+			.await
+			.unwrap()
+			.to_bytes();
+		let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+		assert_eq!(body["errcode"], "M_UNKNOWN_TOKEN");
+		assert_eq!(body["soft_logout"], soft_logout);
+	}
+}

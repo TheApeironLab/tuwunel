@@ -455,6 +455,7 @@ fn register_oidc_routes(router: Router<State>) -> Router<State> {
 			"/_tuwunel/oidc/native",
 			get(oidc::native_get_route).post(oidc::native_submit_route),
 		)
+		.route("/_tuwunel/oidc/backchannel/{provider}", post(oidc::backchannel::logout_route))
 		.route("/_tuwunel/oidc/token", post(oidc::token_route))
 		.route("/_tuwunel/oidc/device_authorization", post(oidc::device_authorization_route))
 		.route("/_tuwunel/oidc/device", get(oidc::get_device_route))
