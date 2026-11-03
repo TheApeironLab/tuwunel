@@ -1,0 +1,39 @@
+{{- /*
+旧式 SSO 跳转的回跳地址守门（N2 2026-10-03，MSG-1）。Tuwunel 不校验 `/login/sso/redirect` 的 redirectUrl，
+登录成功后把 loginToken 拼到任意 URL 上（上游 sso.rs finalize_login_redirect）：有 Keycloak 会话的用户点开
+别人构造的链接，令牌就被带到外站。这里在入口挡住：只放回跳到本站 OIDC 完成端点或 chat.<domain> 的请求，
+其余 403（ipAllowList 空集）。Element 走原生 OIDC，回跳地址就是 _tuwunel/oidc/_complete。
+*/ -}}
+{{- $d := required "domain (SITE_DOMAIN) is required" .Values.domain -}}
+{{- $q := regexQuoteMeta (default .Values.domain .Values.publicDomain) -}}
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: matrix-sso-redirect
+  namespace: {{ .Release.Namespace }}
+spec:
+  entryPoints: [websecure]
+  routes:
+  - kind: Rule
+    priority: 1000
+    match: {{ printf "Host(`matrix.%s`) && PathRegexp(`^/_matrix/client/[^/]+/login/sso/redirect`) && QueryRegexp(`redirectUrl`, `^https://(matrix\\.%s/_tuwunel/oidc/_complete|chat\\.%s/)`)" $d $q $q | quote }}
+    services:
+    - {name: matrix-tuwunel, port: 8008}
+  - kind: Rule
+    priority: 999
+    match: {{ printf "Host(`matrix.%s`) && PathRegexp(`^/_matrix/client/[^/]+/login/sso/redirect`)" $d | quote }}
+    middlewares:
+    - {name: matrix-deny-all}
+    services:
+    - {name: matrix-tuwunel, port: 8008}
+  tls:
+    secretName: matrix-tuwunel-tls
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: matrix-deny-all
+  namespace: {{ .Release.Namespace }}
+spec:
+  ipAllowList:
+    sourceRange: ["255.255.255.255/32"]

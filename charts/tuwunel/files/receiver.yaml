@@ -1,0 +1,19 @@
+# metio/matrix-alertmanager-receiver 的配置。形如 ${NAME} 的占位由 receiver 启动时从环境变量替换
+# （上游 internal/config/parser.go），所以这个文件不经 Helm 模板，也不含任何凭据。
+http:
+  port: 3000
+  alerts-path-prefix: /alerts
+  metrics-enabled: true          # 探针用 /metrics（上游没有健康端点）
+  metrics-path: /metrics
+  basic-username: alertmanager
+  basic-password: "${BASIC_PASSWORD}"
+matrix:
+  # 集群内直连，不经 Traefik，也就不需要信任内部 CA
+  homeserver-url: http://matrix-tuwunel.matrix.svc:8008
+  user-id: "${MATRIX_USER_ID}"   # 以 @ 开头，必须加引号
+  access-token: "${MATRIX_ACCESS_TOKEN}"
+  room-mapping:
+    # 房间 ID 由 configure.sh finalize 建好 #alerts 后写进 ConfigMap matrix-alerts-room
+    alerts: "${ALERTS_ROOM_ID}"   # 以 ! 开头（YAML 标签符），必须加引号
+templating:
+  firing-template: '<p><strong>[{{ .Alert.Status | ToUpper }}] {{ .Alert.Labels.alertname }}</strong>{{ if .Alert.Labels.severity }} ({{ .Alert.Labels.severity }}){{ end }}{{ if .Alert.Labels.namespace }} ns={{ .Alert.Labels.namespace }}{{ end }}<br>{{ if .Alert.Annotations.summary }}{{ .Alert.Annotations.summary }}{{ else if .Alert.Annotations.description }}{{ .Alert.Annotations.description }}{{ end }}</p>'

@@ -175,3 +175,11 @@ every message and our responsibility to the other in every conversation.
 <!-- ANCHOR: footer -->
 
 <!-- ANCHOR_END: footer -->
+
+
+## Apeiron Helm application
+
+The application-owned Kubernetes chart is [`charts/tuwunel`](charts/tuwunel/README.md).
+Its `Application chart` workflow produces a standard Helm package and a source/SHA-256
+release record for Vasi import. Site IAM, storage and credentials are supplied through
+the chart's documented values and existing Secret references.
