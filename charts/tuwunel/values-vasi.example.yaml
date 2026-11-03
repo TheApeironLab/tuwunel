@@ -1,0 +1,4 @@
+domain: example.internal
+registry: registry.example.internal
+storageClass: local-path
+image: registry.example.internal/apps/tuwunel:test

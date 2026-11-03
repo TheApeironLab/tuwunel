@@ -1,0 +1,53 @@
+# 由 Helmfile 的环境 values 传入，不要在这里写站点相关的值（IP、域名、节点名）。
+registry: ""   # REGISTRY，registry.<domain>
+storageClass: longhorn   # STORAGE_CLASS：机房是 longhorn，单机 demo 是 local-path
+domain: ""   # SITE_DOMAIN；同时是 Matrix server_name，首次启动后不可改（ADR-0016）
+storage: 10Gi   # Tuwunel 数据卷：RocksDB + 媒体 + 在线备份仓库
+oidcPublicTrust: false   # Helmfile 从 publicIngress 中是否选中 IAM 派生
+# 使用已验证的独立 Tuwunel 构建时覆写，引用必须包含 digest；源码不进入平台仓库。
+tuwunelImage: matrix-construct/tuwunel:v1.9.3
+# 仅支持含 backchannel 补丁的镜像。首次开启会要求旧 Chat 会话重新登录。
+ssoSessionBinding: false
+
+# Tuwunel 尺寸（ADR-0016：宿主 23G 只能同时开一个集群）。RocksDB 缓存和线程池都按核数涨，
+# 所以 cacheCapacityModifier / dbPoolMaxWorkers 必须压住，否则 12 核宿主上一启动就超 limit。
+cpuRequest: 100m
+memoryRequest: 256Mi
+cpuLimit: "1"
+memoryLimit: 1Gi
+cacheCapacityModifier: 0.5
+dbPoolMaxWorkers: 64
+
+# 用户裁决（docs/adr/0016-matrix-replaces-mattermost.md）
+maxUploadSize: "50 MiB"
+accessTokenTtl: 3600        # 1 小时
+refreshTokenTtl: 604800     # 7 天，非滑动：每周必须经 Keycloak 重新登录一次
+backupsToKeep: 3            # 卷内 RocksDB 在线备份仓库保留份数（backup.sh 再把仓库加密推到 S3）
+# 卷所在文件系统是 btrfs/ZFS（k3d lab 的 local-path 落在 btrfs 子卷上）时设 false：RocksDB 预分配 WAL
+# 在写时复制文件系统上会钉住远超实际的磁盘空间（Tuwunel 启动时自己会告警）。Longhorn（ext4）保持 true；
+# k3d lab（gate、lab02）在环境文件里设 releases.matrix.values.rocksdbAllowFallocate: false。
+rocksdbAllowFallocate: true
+
+# Tuwunel 出站白名单之外再放行的 CIDR（egress NetworkPolicy）。默认只放 DNS 与 Traefik（经它到 https://iam.<domain>）；
+# 机房内网 DNS 若把 iam.<domain> 解析成集群外的入口 VIP（而不是 Traefik 的 ClusterIP），把那个 VIP 写进来，否则 SSO 登录失败。
+egressCidrs: []
+
+# 只给测试环境：第二个 appservice（@e2e-*，令牌在 Secret matrix-e2e-appservice），让 tests/e2e 不经浏览器
+# 拿到 Matrix 用户令牌（用户裁决 Q-MSG-01：不开密码登录）。生产必须保持 false——开了就多一个 SSO 之外的身份来源。
+e2eAppservice: false
+
+element:
+  # Element 语言代码；仅作为默认值，不覆盖用户在设备上保存的语言选择。
+  defaultLanguage: zh-hans
+  # null: 根域与 Apeiron 子域默认来源；[]: 禁用嵌入；列表值: 精确 https://host[:port] 来源覆盖默认值。
+  embedParentOrigins: null
+  # 显式覆盖 Element 入口响应头；同名安全头以此处声明为准。
+  ingressResponseHeaders: {}
+  cpuRequest: 10m
+  memoryRequest: 32Mi
+  memoryLimit: 128Mi
+
+receiver:
+  cpuRequest: 10m
+  memoryRequest: 16Mi
+  memoryLimit: 64Mi

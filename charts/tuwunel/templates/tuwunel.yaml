@@ -1,0 +1,162 @@
+{{- /*
+Tuwunel homeserver（单进程 RocksDB，不能水平扩展：单副本 StatefulSet）。
+配置的取舍与用户裁决见 docs/adr/0016-matrix-replaces-mattermost.md；
+每一项为什么这样设，见 stack/matrix/RUNBOOK.md「配置要点」。
+*/ -}}
+{{- $d := required "domain (SITE_DOMAIN) is required" .Values.domain -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: matrix-tuwunel-config
+  namespace: {{ .Release.Namespace }}
+data:
+  tuwunel.toml: |
+    {{- include "matrix.tuwunelToml" . | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: matrix-tuwunel
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app: matrix-tuwunel
+  ports:
+  - name: http
+    port: 8008
+    targetPort: 8008
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: matrix-tuwunel
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: matrix-tuwunel
+spec:
+  replicas: 1          # Tuwunel 不支持多副本（RocksDB 单进程独占）
+  serviceName: matrix-tuwunel
+  selector:
+    matchLabels:
+      app: matrix-tuwunel
+  template:
+    metadata:
+      labels:
+        app: matrix-tuwunel
+      annotations:
+        checksum/config: {{ include "matrix.tuwunelToml" . | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      # 升级后首次启动可能做数据库迁移，迁移中途被杀会留下半迁移的库（Tuwunel docs/deploying/kubernetes.md）
+      terminationGracePeriodSeconds: 600
+      # backup sidecar 要能给 tuwunel 进程发 SIGUSR2
+      shareProcessNamespace: true
+      imagePullSecrets:
+      - name: registry-pull
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: tuwunel
+        image: {{ .Values.registry }}/{{ .Values.tuwunelImage }}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8008
+        env:
+        - name: TUWUNEL_CONFIG
+          value: /etc/tuwunel/tuwunel.toml
+        # 默认只信任内部 CA；公网 IAM 同时加载镜像自带的系统根，保留内部信任。
+        - name: SSL_CERT_FILE
+          value: /etc/chentu-ca/ca.crt
+        {{- if .Values.oidcPublicTrust }}
+        - name: SSL_CERT_DIR
+          value: /etc/ssl/certs
+        {{- end }}
+        - name: TUWUNEL_APPSERVICE__ALERTS__AS_TOKEN
+          valueFrom:
+            secretKeyRef: {name: matrix-appservice, key: as-token}
+        - name: TUWUNEL_APPSERVICE__ALERTS__HS_TOKEN
+          valueFrom:
+            secretKeyRef: {name: matrix-appservice, key: hs-token}
+        - name: TUWUNEL_APPSERVICE__ADMIN__AS_TOKEN
+          valueFrom:
+            secretKeyRef: {name: matrix-admin-appservice, key: as-token}
+        - name: TUWUNEL_APPSERVICE__ADMIN__HS_TOKEN
+          valueFrom:
+            secretKeyRef: {name: matrix-admin-appservice, key: hs-token}
+        {{- if .Values.e2eAppservice }}
+        - name: TUWUNEL_APPSERVICE__E2E__AS_TOKEN
+          valueFrom:
+            secretKeyRef: {name: matrix-e2e-appservice, key: as-token}
+        - name: TUWUNEL_APPSERVICE__E2E__HS_TOKEN
+          valueFrom:
+            secretKeyRef: {name: matrix-e2e-appservice, key: hs-token}
+        {{- end }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities: {drop: [ALL]}
+        volumeMounts:
+        - {name: data, mountPath: /var/lib/tuwunel}
+        - {name: config, mountPath: /etc/tuwunel/tuwunel.toml, subPath: tuwunel.toml, readOnly: true}
+        - {name: oidc, mountPath: /etc/tuwunel/oidc, readOnly: true}
+        - {name: chentu-ca, mountPath: /etc/chentu-ca, readOnly: true}
+        # 迁移期间 health-check 失败：startup 预算 30 分钟，期间不跑 liveness/readiness
+        startupProbe:
+          exec: {command: [tuwunel, --health-check]}
+          periodSeconds: 10
+          timeoutSeconds: 15
+          failureThreshold: 180
+        livenessProbe:
+          exec: {command: [tuwunel, --health-check]}
+          periodSeconds: 30
+          timeoutSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          exec: {command: [tuwunel, --health-check]}
+          periodSeconds: 10
+          timeoutSeconds: 15
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: {{ .Values.cpuRequest }}
+            memory: {{ .Values.memoryRequest }}
+          limits:
+            cpu: {{ .Values.cpuLimit | quote }}
+            memory: {{ .Values.memoryLimit }}
+      # 只给 backup.sh 用：发 SIGUSR2、把备份仓库和媒体打包读出来。平时只 sleep
+      - name: backup
+        image: {{ .Values.registry }}/busybox:1.36@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662
+        imagePullPolicy: IfNotPresent
+        command: [sh, -c, "trap 'exit 0' TERM INT; while :; do sleep 3600 & wait $!; done"]
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities: {drop: [ALL]}
+        volumeMounts:
+        - {name: data, mountPath: /var/lib/tuwunel}
+        resources:
+          requests: {cpu: 1m, memory: 4Mi}
+          limits: {memory: 64Mi}
+      volumes:
+      - name: config
+        configMap: {name: matrix-tuwunel-config}
+      - name: oidc
+        secret:
+          secretName: matrix-oidc   # stack/keycloak/scripts/ensure-oidc-client.sh 写出（configure.sh prepare）
+          items: [{key: client-secret, path: client-secret}]
+      - name: chentu-ca
+        configMap: {name: chentu-ca}
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: [ReadWriteOnce]
+      storageClassName: {{ .Values.storageClass }}
+      resources:
+        requests:
+          storage: {{ .Values.storage }}

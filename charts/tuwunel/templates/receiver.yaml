@@ -1,0 +1,94 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: matrix-alert-receiver-config
+  namespace: {{ .Release.Namespace }}
+data:
+  config.yaml: |
+    {{- .Files.Get "files/receiver.yaml" | replace "http://matrix-tuwunel.matrix.svc:8008" (printf "http://matrix-tuwunel.%s.svc:8008" .Release.Namespace) | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: matrix-alert-receiver
+  namespace: {{ .Release.Namespace }}
+  labels: {app: matrix-alert-receiver}   # ServiceMonitor 按它选（templates/monitoring.yaml）
+spec:
+  type: ClusterIP
+  selector:
+    app: matrix-alert-receiver
+  ports:
+  - name: http
+    port: 3000
+    targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: matrix-alert-receiver
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: matrix-alert-receiver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: matrix-alert-receiver
+  template:
+    metadata:
+      labels:
+        app: matrix-alert-receiver
+      annotations:
+        checksum/config: {{ .Files.Get "files/receiver.yaml" | replace "http://matrix-tuwunel.matrix.svc:8008" (printf "http://matrix-tuwunel.%s.svc:8008" .Release.Namespace) | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+      - name: registry-pull
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532    # distroless nonroot
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: receiver
+        image: {{ .Values.registry }}/metio/matrix-alertmanager-receiver:2026.9.23
+        imagePullPolicy: IfNotPresent
+        args: [--config-path, /etc/receiver/config.yaml]
+        ports:
+        - name: http
+          containerPort: 3000
+        env:
+        - name: MATRIX_USER_ID
+          value: "@alertbot:{{ required "domain (SITE_DOMAIN) is required" .Values.domain }}"
+        - name: MATRIX_ACCESS_TOKEN   # appservice 的 as_token（Tuwunel 认它就是 @alertbot）
+          valueFrom:
+            secretKeyRef: {name: matrix-appservice, key: as-token}
+        - name: BASIC_PASSWORD        # 与 observability/matrix-alerts 同值（chentu.secrets SHARED_VALUES）
+          valueFrom:
+            secretKeyRef: {name: matrix-alerts, key: password}
+        - name: ALERTS_ROOM_ID
+          valueFrom:
+            configMapKeyRef: {name: matrix-alerts-room, key: room-id, optional: true}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities: {drop: [ALL]}
+        volumeMounts:
+        - {name: config, mountPath: /etc/receiver, readOnly: true}
+        readinessProbe:
+          httpGet: {path: /metrics, port: 3000}
+          periodSeconds: 10
+        livenessProbe:
+          httpGet: {path: /metrics, port: 3000}
+          periodSeconds: 30
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: {{ .Values.receiver.cpuRequest }}
+            memory: {{ .Values.receiver.memoryRequest }}
+          limits:
+            memory: {{ .Values.receiver.memoryLimit }}
+      volumes:
+      - name: config
+        configMap: {name: matrix-alert-receiver-config}

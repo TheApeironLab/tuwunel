@@ -1,0 +1,85 @@
+# 只放行必须的入站：Traefik（kube-system）进 Tuwunel 与 Element；observability（Alertmanager）
+# 进告警转发；告警转发进 Tuwunel。configure.sh / verify.sh / backup.sh 走 kubectl
+# port-forward / exec，不经 Pod 网络。
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: matrix-tuwunel
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels: {app: matrix-tuwunel}
+  policyTypes: [Ingress]
+  ingress:
+  - from:
+    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}    # traefik
+    ports:
+    - {protocol: TCP, port: 8008}
+  - from:
+    - podSelector: {matchLabels: {app: matrix-alert-receiver}}
+    ports:
+    - {protocol: TCP, port: 8008}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: matrix-element
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels: {app: matrix-element}
+  policyTypes: [Ingress]
+  ingress:
+  - from:
+    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}    # traefik
+    ports:
+    - {protocol: TCP, port: 8080}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: matrix-alert-receiver
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels: {app: matrix-alert-receiver}
+  policyTypes: [Ingress]
+  ingress:
+  - from:
+    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: observability}}  # alertmanager
+    ports:
+    - {protocol: TCP, port: 3000}
+---
+# Tuwunel 的出站（N2 2026-10-03，MSG-1）：只到集群 DNS 与 Traefik（经它访问 https://iam.<domain>）。
+# 联邦已关、URL 预览关闭；这条把「用户登记 http pusher 把消息推到任意主机」也堵上（Tuwunel 自带的
+# ip_range_denylist 只挡私网地址，挡不住公网主机）。
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: matrix-tuwunel-egress
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels: {app: matrix-tuwunel}
+  policyTypes: [Egress]
+  egress:
+  - to:
+    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+      podSelector: {matchLabels: {k8s-app: kube-dns}}
+    ports:
+    - {protocol: UDP, port: 53}
+    - {protocol: TCP, port: 53}
+  - to:
+    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+      podSelector: {matchLabels: {app.kubernetes.io/name: traefik}}
+    ports:
+    - {protocol: TCP, port: 8443}
+    - {protocol: TCP, port: 443}
+  {{- with .Values.egressCidrs }}
+  - to:
+    {{- range . }}
+    - ipBlock: {cidr: {{ . | quote }}}
+    {{- end }}
+    ports:
+    - {protocol: TCP, port: 443}
+  {{- end }}

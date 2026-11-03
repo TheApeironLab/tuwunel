@@ -1,0 +1,26 @@
+name: Application chart
+on:
+  pull_request:
+    paths: ['charts/**', 'release/package.py', '.github/workflows/app-chart.yml']
+  push:
+    branches: [main]
+    paths: ['charts/**', 'release/package.py', '.github/workflows/app-chart.yml']
+permissions:
+  contents: read
+jobs:
+  chart:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with: {version: v3.19.0}
+      - name: Lint and render the application chart
+        run: |
+          helm lint charts/tuwunel --values charts/tuwunel/values-vasi.example.yaml
+          helm template matrix charts/tuwunel --namespace matrix --values charts/tuwunel/values-vasi.example.yaml > "$RUNNER_TEMP/rendered.yaml"
+      - name: Package immutable chart and source provenance
+        run: python3 release/package.py --output "$RUNNER_TEMP/app-charts"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tuwunel-charts
+          path: ${{ runner.temp }}/app-charts/

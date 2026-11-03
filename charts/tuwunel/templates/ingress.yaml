@@ -1,0 +1,146 @@
+{{- $d := required "domain (SITE_DOMAIN) is required" .Values.domain -}}
+# matrix.<domain>：只开 Element 用到的客户端面。不暴露联邦（/_matrix/federation、/_matrix/key）、
+# Synapse 兼容管理 API（/_synapse/admin）和 Tuwunel 的其它内部路径——白名单，不是黑名单。
+# /_matrix/media 必须在：上传（/v3/upload、/v1/create）仍在这个前缀下；无认证的旧下载接口由
+# allow_legacy_media=false 在服务端返回 403，下载走 /_matrix/client/v1/media。
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: matrix-tuwunel
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    cert-manager.io/cluster-issuer: chentu-internal-ca
+spec:
+  ingressClassName: traefik
+  tls:
+  - hosts: [matrix.{{ $d }}]
+    secretName: matrix-tuwunel-tls
+  rules:
+  - host: matrix.{{ $d }}
+    http:
+      paths:
+      - path: /_matrix/client
+        pathType: Prefix
+        backend: {service: {name: matrix-tuwunel, port: {number: 8008}}}
+      - path: /_matrix/media
+        pathType: Prefix
+        backend: {service: {name: matrix-tuwunel, port: {number: 8008}}}
+      - path: /_tuwunel/oidc
+        pathType: Prefix
+        backend: {service: {name: matrix-tuwunel, port: {number: 8008}}}
+      - path: /.well-known/matrix/client
+        pathType: Exact
+        backend: {service: {name: matrix-tuwunel, port: {number: 8008}}}
+      - path: /.well-known/openid-configuration
+        pathType: Exact
+        backend: {service: {name: matrix-tuwunel, port: {number: 8008}}}
+---
+# chat.<domain>：Element Web。必须与 homeserver 不同域（用户内容的 XSS 面），并带上游要求的响应头。
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: matrix-element
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    cert-manager.io/cluster-issuer: chentu-internal-ca
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-matrix-element-headers@kubernetescrd
+spec:
+  ingressClassName: traefik
+  tls:
+  - hosts: [chat.{{ $d }}]
+    secretName: matrix-element-tls
+  rules:
+  - host: chat.{{ $d }}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend: {service: {name: matrix-element, port: {number: 8080}}}
+---
+# <domain>（根域）：只发 /.well-known/matrix/client，Element 用它取 io.element.e2ee（见 _element.tpl）。
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: matrix-well-known
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    cert-manager.io/cluster-issuer: chentu-internal-ca
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-matrix-well-known-headers@kubernetescrd
+spec:
+  ingressClassName: traefik
+  tls:
+  - hosts: [{{ $d }}]
+    secretName: matrix-well-known-tls
+  rules:
+  - host: {{ $d }}
+    http:
+      paths:
+      - path: /.well-known/matrix/client
+        pathType: Exact
+        backend: {service: {name: matrix-element, port: {number: 8080}}}
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: matrix-element-headers
+  namespace: {{ .Release.Namespace }}
+spec:
+  headers:
+    customResponseHeaders:
+      {{- $publicDomain := default $d .Values.publicDomain -}}
+      {{- $parents := .Values.element.embedParentOrigins -}}
+      {{- if eq $parents nil -}}
+        {{- $parents = list
+          (printf "https://%s" $publicDomain)
+          (printf "https://apeiron.%s" $publicDomain)
+        -}}
+      {{- else -}}
+        {{- if not (kindIs "slice" $parents) -}}
+          {{- fail "element.embedParentOrigins must be a list of exact HTTPS origins" -}}
+        {{- end -}}
+        {{- range $origin := $parents -}}
+          {{- if not (kindIs "string" $origin) -}}
+            {{- fail "element.embedParentOrigins entries must be strings" -}}
+          {{- end -}}
+          {{- if not (regexMatch
+            "^https://[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?([.][A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:[0-9]{1,5})?$"
+            $origin
+          ) -}}
+            {{- fail "element.embedParentOrigins entries must be exact HTTPS origins (host and optional valid port only)" -}}
+          {{- end -}}
+          {{- $port := regexFind ":[0-9]+$" $origin -}}
+          {{- if $port -}}
+            {{- $portText := trimPrefix ":" $port -}}
+            {{- $portNumber := atoi $portText -}}
+            {{- if or (lt $portNumber 1) (gt $portNumber 65535) -}}
+              {{- fail "element.embedParentOrigins port must be between 1 and 65535" -}}
+            {{- end -}}
+            {{- if ne $portText (printf "%d" $portNumber) -}}
+              {{- fail "element.embedParentOrigins port must use canonical decimal notation" -}}
+            {{- end -}}
+          {{- end -}}
+        {{- end -}}
+      {{- end -}}
+      {{- $ancestors := uniq (concat (list "'self'") $parents) -}}
+      {{- $xfo := "SAMEORIGIN" -}}
+      {{- if gt (len $parents) 0 -}}{{- $xfo = "" -}}{{- end -}}
+      {{- $headers := dict
+        "X-Frame-Options" $xfo
+        "X-Content-Type-Options" "nosniff"
+        "X-XSS-Protection" "1; mode=block"
+        "Content-Security-Policy" (printf "frame-ancestors %s" (join " " $ancestors))
+      -}}
+      {{- mergeOverwrite $headers .Values.element.ingressResponseHeaders | toYaml | nindent 6 }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: matrix-well-known-headers
+  namespace: {{ .Release.Namespace }}
+spec:
+  headers:
+    # 跨域：chat.<domain> 上的 Element 读根域的 well-known；nginx 对无扩展名文件给 octet-stream
+    customResponseHeaders:
+      Access-Control-Allow-Origin: "*"
+      Content-Type: application/json
+      X-Content-Type-Options: nosniff
