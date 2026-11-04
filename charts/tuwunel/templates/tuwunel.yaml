@@ -1,3 +1,6 @@
+{{- if not (has .Values.auth.mode (list "external" "oidc")) -}}
+{{- fail "auth.mode must be external or oidc" -}}
+{{- end -}}
 {{- /*
 Tuwunel homeserver（单进程 RocksDB，不能水平扩展：单副本 StatefulSet）。
 配置的取舍与用户裁决见 docs/adr/0016-matrix-replaces-mattermost.md；
@@ -52,8 +55,7 @@ spec:
       terminationGracePeriodSeconds: 600
       # backup sidecar 要能给 tuwunel 进程发 SIGUSR2
       shareProcessNamespace: true
-      imagePullSecrets:
-      - name: registry-pull
+      imagePullSecrets: {{ toJson .Values.imagePullSecrets }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
@@ -147,10 +149,10 @@ spec:
         configMap: {name: matrix-tuwunel-config}
       - name: oidc
         secret:
-          secretName: matrix-oidc   # stack/keycloak/scripts/ensure-oidc-client.sh 写出（configure.sh prepare）
+          secretName: {{ default "matrix-oidc" .Values.auth.oidc.existingSecret }}   # stack/keycloak/scripts/ensure-oidc-client.sh 写出（configure.sh prepare）
           items: [{key: client-secret, path: client-secret}]
       - name: chentu-ca
-        configMap: {name: chentu-ca}
+        configMap: {name: {{ .Values.caConfigMap }}}
   volumeClaimTemplates:
   - metadata:
       name: data

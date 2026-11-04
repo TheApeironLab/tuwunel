@@ -42,8 +42,7 @@ spec:
         checksum/config: {{ .Files.Get "files/receiver.yaml" | replace "http://matrix-tuwunel.matrix.svc:8008" (printf "http://matrix-tuwunel.%s.svc:8008" .Release.Namespace) | sha256sum }}
     spec:
       automountServiceAccountToken: false
-      imagePullSecrets:
-      - name: registry-pull
+      imagePullSecrets: {{ toJson .Values.imagePullSecrets }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532    # distroless nonroot

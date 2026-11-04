@@ -52,7 +52,7 @@ refresh_token_idle_only = false
 # 内置 OIDC 授权服务器（MSC3861）只做中转：不提供本地账号登录页，直接跳上游 Keycloak；
 # 只有 chat.<domain> 上的 Element 能免审批注册为客户端
 oidc_native_auth = false
-oidc_registration_allowed_redirect_hosts = ["chat.{{ $d }}"]
+oidc_registration_allowed_redirect_hosts = [{{ default (printf "chat.%s" $d) .Values.ingress.host | quote }}]
 oidc_aware_preferred = true
 
 # backup.sh 经 sidecar 发 SIGUSR2 触发在线备份（镜像里没有 shell，不能 exec 进主容器）
@@ -66,15 +66,15 @@ admin_escape_commands = false
 
 [global.well_known]
 # 也是内置 OIDC 授权服务器的 issuer
-client = "https://matrix.{{ (default .Values.domain .Values.publicDomain) }}"
+client = "{{ include "chat.homeserver" . }}"
 
 [[global.identity_provider]]
 brand = "Keycloak"
 # client_id 与 issuer_url 是 Tuwunel 绑定身份的键，(client_id, sub) 一旦写进数据库就永远不能改
-client_id = "matrix-app"
+client_id = {{ include "chat.clientId" . | quote }}
 client_secret_file = "/etc/tuwunel/oidc/client-secret"
-issuer_url = "https://iam.{{ (default .Values.domain .Values.publicDomain) }}/realms/master"
-callback_url = "https://matrix.{{ (default .Values.domain .Values.publicDomain) }}/_matrix/client/unstable/login/sso/callback/matrix-app"
+issuer_url = {{ include "chat.issuer" . | quote }}
+callback_url = {{ default (printf "%s/_matrix/client/unstable/login/sso/callback/%s" (include "chat.homeserver" .) (include "chat.clientId" .)) .Values.auth.oidc.callbackUrl | quote }}
 # localpart 取 Keycloak username（用户不能自改）；不合法或被占用时报错，不生成随机 ID
 userid_claims = ["preferred_username"]
 unique_id_fallbacks = false

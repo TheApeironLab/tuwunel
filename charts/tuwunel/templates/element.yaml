@@ -44,8 +44,7 @@ spec:
         checksum/config: {{ printf "%s%s" (include "matrix.elementConfig" .) (include "matrix.wellKnownClient" .) | sha256sum }}
     spec:
       automountServiceAccountToken: false
-      imagePullSecrets:
-      - name: registry-pull
+      imagePullSecrets: {{ toJson .Values.imagePullSecrets }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 101      # 镜像的 nginx 用户（USER 是名字，runAsNonRoot 需要数字 uid）

@@ -16,12 +16,12 @@ spec:
   routes:
   - kind: Rule
     priority: 1000
-    match: {{ printf "Host(`matrix.%s`) && PathRegexp(`^/_matrix/client/[^/]+/login/sso/redirect`) && QueryRegexp(`redirectUrl`, `^https://(matrix\\.%s/_tuwunel/oidc/_complete|chat\\.%s/)`)" $d $q $q | quote }}
+    match: {{ printf "Host(`%s`) && PathRegexp(`^/_matrix/client/[^/]+/login/sso/redirect`) && QueryRegexp(`redirectUrl`, `^(%s/_tuwunel/oidc/_complete|%s/)`)" (default (printf "matrix.%s" $d) .Values.ingress.homeserverHost) (regexQuoteMeta (include "chat.homeserver" .)) (regexQuoteMeta (include "chat.origin" .)) | quote }}
     services:
     - {name: matrix-tuwunel, port: 8008}
   - kind: Rule
     priority: 999
-    match: {{ printf "Host(`matrix.%s`) && PathRegexp(`^/_matrix/client/[^/]+/login/sso/redirect`)" $d | quote }}
+    match: {{ printf "Host(`%s`) && PathRegexp(`^/_matrix/client/[^/]+/login/sso/redirect`)" (default (printf "matrix.%s" $d) .Values.ingress.homeserverHost) | quote }}
     middlewares:
     - {name: matrix-deny-all}
     services:
