@@ -51,3 +51,18 @@ receiver:
   cpuRequest: 10m
   memoryRequest: 16Mi
   memoryLimit: 64Mi
+
+# Public origin and OIDC references supplied by the deployment controller.
+publicUrl: ""
+ingress: {host: "", homeserverHost: ""}
+caConfigMap: chentu-ca
+imagePullSecrets: [{name: registry-pull}]
+auth:
+  mode: external
+  oidc:
+    issuer: ""
+    clientId: ""
+    existingSecret: ""
+    directorySecret: ""
+
+homeserverUrl: ""

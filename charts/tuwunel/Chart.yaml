@@ -1,7 +1,7 @@
 apiVersion: v2
 name: tuwunel
 description: tuwunel application for Apeiron; independently installed and upgraded.
-version: 0.1.0
+version: 0.2.0
 type: application
 appVersion: "tuwunel v1.9.3 / element-web v1.12.30"
 sources:

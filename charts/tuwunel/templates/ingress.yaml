@@ -13,10 +13,10 @@ metadata:
 spec:
   ingressClassName: traefik
   tls:
-  - hosts: [matrix.{{ $d }}]
+  - hosts: [{{ default (printf "matrix.%s" $d) .Values.ingress.homeserverHost }}]
     secretName: matrix-tuwunel-tls
   rules:
-  - host: matrix.{{ $d }}
+  - host: {{ default (printf "matrix.%s" $d) .Values.ingress.homeserverHost }}
     http:
       paths:
       - path: /_matrix/client
@@ -47,10 +47,10 @@ metadata:
 spec:
   ingressClassName: traefik
   tls:
-  - hosts: [chat.{{ $d }}]
+  - hosts: [{{ default (printf "chat.%s" $d) .Values.ingress.host }}]
     secretName: matrix-element-tls
   rules:
-  - host: chat.{{ $d }}
+  - host: {{ default (printf "chat.%s" $d) .Values.ingress.host }}
     http:
       paths:
       - path: /

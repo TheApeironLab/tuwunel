@@ -15,7 +15,7 @@ cli/tests/test_matrix_chart.py 断言渲染结果里所有 URL 的主机只有 {
 {{- end -}}
 {{- $_ := set $off "language" .Values.element.defaultLanguage -}}
 {{- $cfg := dict
-  "default_server_config" (dict "m.homeserver" (dict "base_url" (printf "https://matrix.%s" (default .Values.domain .Values.publicDomain)) "server_name" $d))
+  "default_server_config" (dict "m.homeserver" (dict "base_url" (include "chat.homeserver" .) "server_name" $d))
   "disable_custom_urls" true
   "disable_guests" true
   "disable_3pid_login" true
@@ -33,7 +33,7 @@ cli/tests/test_matrix_chart.py 断言渲染结果里所有 URL 的主机只有 {
   "desktop_builds" (dict "available" false "logo" "" "url" "")
   "mobile_builds" (dict "ios" nil "android" nil "fdroid" nil)
   "mobile_guide_toast" false
-  "help_url" (printf "https://chat.%s/" (default .Values.domain .Values.publicDomain))
+  "help_url" (printf "%s/" (include "chat.origin" .))
   "sso_redirect_options" (dict "immediate" false)
   "setting_defaults" $off
 -}}
@@ -48,6 +48,6 @@ force_disable 让 Element 不再提供"开启加密"的开关（服务端 allow_
 {{- define "matrix.wellKnownClient" -}}
 {{- $d := required "domain (SITE_DOMAIN) is required" .Values.domain -}}
 {{- toPrettyJson (dict
-  "m.homeserver" (dict "base_url" (printf "https://matrix.%s" (default .Values.domain .Values.publicDomain)))
+  "m.homeserver" (dict "base_url" (include "chat.homeserver" .))
   "io.element.e2ee" (dict "default" false "force_disable" true)) }}
 {{- end -}}
