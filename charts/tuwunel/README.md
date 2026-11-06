@@ -10,7 +10,7 @@ StatefulSet（含 backup sidecar）、独立 Element 和默认启用的告警 re
 
 ## 已验证范围与版本边界
 
-仓库外 r3 包 `0.3.0-dev.20261104.3` 已于 2026-11-05 在独立 labctl 分支通过
+仓库外 r3 包 `0.3.0-dev.20261104.3` 已于 2026-11-05 在独立隔离环境通过
 Vasi 执行器安装、真实成员 SSO、无角色拒绝、消息收发、认证媒体上传下载及告警投递。
 本候选整合该材料，并修复非空 `egressCidrs` 时 NetworkPolicy 模板作用域错误。
 **该新候选须独立部署验收；不能沿用 r3 的实装结果宣称新归档已通过。**
@@ -98,4 +98,4 @@ python3 release/package-install.py --materials /external/verified-material \
 `--materials` 下的 `images/` 必须与版本化锁文件的字节数、SHA-256、repository/tag/digest 完全一致。
 构建器不联网获取镜像；完整包包含 Chart、五个 OCI、接线/只读检查工具及校验清单。
 每个版本与输出不可覆盖；发生内容变更须发布新版本。开发来源不是签名或第三方来源认证。
-测试日志、凭据、OCI、安装包与 labctl 状态均保留在仓库外。
+测试日志、凭据、OCI、安装包与测试环境状态均保留在仓库外。
