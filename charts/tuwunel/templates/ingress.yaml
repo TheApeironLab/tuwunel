@@ -9,7 +9,7 @@ metadata:
   name: matrix-tuwunel
   namespace: {{ .Release.Namespace }}
   annotations:
-    cert-manager.io/cluster-issuer: chentu-internal-ca
+    cert-manager.io/cluster-issuer: {{ .Values.certificateIssuer }}
 spec:
   ingressClassName: traefik
   tls:
@@ -42,7 +42,7 @@ metadata:
   name: matrix-element
   namespace: {{ .Release.Namespace }}
   annotations:
-    cert-manager.io/cluster-issuer: chentu-internal-ca
+    cert-manager.io/cluster-issuer: {{ .Values.certificateIssuer }}
     traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-matrix-element-headers@kubernetescrd
 spec:
   ingressClassName: traefik
@@ -64,7 +64,7 @@ metadata:
   name: matrix-well-known
   namespace: {{ .Release.Namespace }}
   annotations:
-    cert-manager.io/cluster-issuer: chentu-internal-ca
+    cert-manager.io/cluster-issuer: {{ .Values.certificateIssuer }}
     traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-matrix-well-known-headers@kubernetescrd
 spec:
   ingressClassName: traefik

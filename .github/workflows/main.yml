@@ -439,8 +439,15 @@ jobs:
       attic_token: ${{ secrets.ATTIC_TOKEN }}
 
   publish:
+    # Publication requires an explicit release event, never a PR or ordinary push.
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     if: >
       !failure() && !cancelled()
+      && ((github.event_name == 'workflow_dispatch' && inputs.enable_publish == true)
+          || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')))
       && fromJSON(needs.init.outputs.enable_publish)
       && !contains(needs.init.outputs.pipeline, '[ci only it]')
       && !contains(needs.init.outputs.pipeline, '[ci no build]')

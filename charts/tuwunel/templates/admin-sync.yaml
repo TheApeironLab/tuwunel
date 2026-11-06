@@ -1,0 +1,41 @@
+{{- if .Values.adminSync.enabled }}
+{{- $_ := required "adminSync needs an externally provisioned read-only IAM directory client Secret" .Values.adminSync.directorySecret }}
+apiVersion: batch/v1
+kind: CronJob
+metadata: {name: matrix-admin-sync}
+spec:
+  schedule: {{ .Values.adminSync.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 300
+      backoffLimit: 0
+      template:
+        metadata: {labels: {app: matrix-admin-sync}}
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          imagePullSecrets: {{ toJson .Values.imagePullSecrets }}
+          securityContext: {runAsNonRoot: true, runAsUser: 10001, runAsGroup: 10001, seccompProfile: {type: RuntimeDefault}}
+          containers:
+          - name: sync
+            image: {{ include "matrix.image" (dict "context" . "role" "initializer") }}
+            command: [python3, /initializer/admin-sync.py]
+            securityContext: {readOnlyRootFilesystem: true, allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+            resources: {requests: {cpu: 10m, memory: 32Mi}, limits: {memory: 128Mi}}
+            env:
+            - {name: IAM_ISSUER, value: {{ .Values.auth.oidc.issuer | quote }}}
+            - {name: MATRIX_DOMAIN, value: {{ .Values.domain | quote }}}
+            - {name: ADMIN_ROLE, value: {{ .Values.adminSync.role | quote }}}
+            - {name: DIRECTORY_CLIENT_ID, valueFrom: {secretKeyRef: {name: {{ .Values.adminSync.directorySecret }}, key: client-id}}}
+            - {name: DIRECTORY_CLIENT_SECRET, valueFrom: {secretKeyRef: {name: {{ .Values.adminSync.directorySecret }}, key: client-secret}}}
+            - {name: MATRIX_ADMIN_TOKEN, valueFrom: {secretKeyRef: {name: matrix-admin-appservice, key: as-token}}}
+            volumeMounts:
+            - {name: initializer, mountPath: /initializer, readOnly: true}
+            - {name: ca, mountPath: /etc/iam-ca, readOnly: true}
+          volumes:
+          - {name: initializer, configMap: {name: matrix-app-initializer}}
+          - {name: ca, configMap: {name: {{ .Values.caConfigMap }}}}
+{{- end }}

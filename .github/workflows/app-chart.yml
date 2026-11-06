@@ -1,10 +1,12 @@
 name: Application chart
 on:
   pull_request:
-    paths: ['charts/**', 'release/package.py', '.github/workflows/app-chart.yml']
+    paths: ['charts/**', 'release/**', 'operations/**', 'tests/chart/**', '.github/workflows/app-chart.yml']
   push:
     branches: [main]
-    paths: ['charts/**', 'release/package.py', '.github/workflows/app-chart.yml']
+    paths: ['charts/**', 'release/**', 'operations/**', 'tests/chart/**', '.github/workflows/app-chart.yml']
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
 permissions:
   contents: read
 jobs:
@@ -14,6 +16,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: azure/setup-helm@v4
         with: {version: v3.19.0}
+      - name: Check deployment contracts and initializer safety
+        run: |
+          python3 -m venv "$RUNNER_TEMP/chart-venv"
+          "$RUNNER_TEMP/chart-venv/bin/python" -m pip install -r release/requirements.txt
+          "$RUNNER_TEMP/chart-venv/bin/python" -m unittest discover -s tests/chart -p 'test_*.py'
       - name: Lint and render the application chart
         run: |
           helm lint charts/tuwunel --values charts/tuwunel/values-vasi.example.yaml

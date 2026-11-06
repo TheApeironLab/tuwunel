@@ -1,0 +1,61 @@
+{{- if ne .Values.auth.mode "oidc" }}{{ fail "Vasi application requires managed OIDC" }}{{ end }}
+{{- if .Values.e2eAppservice }}{{ fail "test appservice is not available in the production application package" }}{{ end }}
+{{- if .Values.ssoSessionBinding }}{{ fail "session binding requires a separately reviewed image and backchannel integration" }}{{ end }}
+{{- range $key := list "issuer" "clientId" "existingSecret" "callbackUrl" }}
+{{- $_ := required (printf "Generate Vasi public references: auth.oidc.%s required" $key) (index $.Values.auth.oidc $key) }}
+{{- end }}
+{{- $_ := required "caConfigMap required" .Values.caConfigMap }}
+{{- if eq .Values.ingress.host .Values.ingress.homeserverHost }}{{ fail "Element and homeserver must remain separate origins" }}{{ end }}
+{{- if .Values.vasi.enabled }}{{ fail "Use native multi-endpoint ingress, not Vasi v1 single-endpoint integration" }}{{ end }}
+{{- $expectedCallback := printf "%s/_matrix/client/unstable/login/sso/callback/%s" .Values.homeserverUrl .Values.auth.oidc.clientId }}
+{{- if ne $expectedCallback .Values.auth.oidc.callbackUrl }}{{ fail "OIDC callback must match homeserver and client ID" }}{{ end }}
+{{- range $binding := list (dict "url" .Values.publicUrl "host" .Values.ingress.host) (dict "url" .Values.homeserverUrl "host" .Values.ingress.homeserverHost) }}
+{{- $expected := printf "https://%s" $binding.host }}
+{{- if ne (int $.Values.ingress.httpsPort) 443 }}{{ $expected = printf "%s:%d" $expected (int $.Values.ingress.httpsPort) }}{{ end }}
+{{- if ne $expected $binding.url }}{{ fail "HTTPS URL, host and port must match generated site context" }}{{ end }}
+{{- end }}
+{{- if not (hasPrefix "https://" .Values.auth.oidc.issuer) }}{{ fail "OIDC issuer must use HTTPS" }}{{ end }}
+{{- $marker := lookup "v1" "ConfigMap" .Release.Namespace "matrix-server-name" }}
+{{- $identity := dict "server_name" .Values.domain "client_id" .Values.auth.oidc.clientId "issuer_url" .Values.auth.oidc.issuer }}
+{{- if $marker }}
+{{- range $key, $value := $identity }}{{- if ne (index $marker.data $key) $value }}{{ fail (printf "Persistent Matrix identity %s cannot change" $key) }}{{ end }}{{- end }}
+{{- else if (lookup "v1" "PersistentVolumeClaim" .Release.Namespace "data-matrix-tuwunel-0") }}
+{{- fail "Existing Matrix data without verified identity marker cannot be adopted" }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: matrix-server-name
+  annotations: {helm.sh/resource-policy: keep}
+data: {{ toJson $identity }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: matrix-app-initializer}
+data:
+  alerts.py: |
+    {{- .Files.Get "files/alerts.py" | nindent 4 }}
+  admin-sync.py: |
+    {{- .Files.Get "files/admin-sync.py" | nindent 4 }}
+{{- $secrets := list }}
+{{- if .Values.alerts.enabled }}{{ $secrets = append $secrets (dict "name" "matrix-appservice" "keys" (list "as-token" "hs-token")) }}{{ $secrets = append $secrets (dict "name" .Values.alerts.passwordSecret "keys" (list "password")) }}{{ end }}
+{{- if .Values.adminSync.enabled }}{{ $secrets = append $secrets (dict "name" "matrix-admin-appservice" "keys" (list "as-token" "hs-token")) }}{{ end }}
+{{- range $entry := $secrets }}
+{{- $live := lookup "v1" "Secret" $.Release.Namespace $entry.name }}
+{{- if $live }}
+{{- range $key := $entry.keys }}{{- $_ := required (printf "Existing %s lacks required key %s" $entry.name $key) (index $live.data $key) }}{{- end }}
+{{- end }}
+{{- if or (not $live) (and $live (eq (index (default dict $live.metadata.annotations) "meta.helm.sh/release-name") $.Release.Name)) }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $entry.name }}
+  annotations: {helm.sh/resource-policy: keep}
+type: Opaque
+data:
+  {{- range $key := $entry.keys }}
+  {{ $key }}: {{ if $live }}{{ index $live.data $key | quote }}{{ else }}{{ randAlphaNum 64 | b64enc | quote }}{{ end }}
+  {{- end }}
+{{- end }}
+{{- end }}

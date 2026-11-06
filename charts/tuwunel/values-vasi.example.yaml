@@ -1,4 +1,26 @@
-domain: example.internal
-registry: registry.example.internal
+# Rendering fixture only; generate real site values with release/prepare-values.py.
+domain: lab.example.internal
+publicUrl: https://chat.lab.example.internal:19443
+homeserverUrl: https://matrix.lab.example.internal:19443
+publicDomain: lab.example.internal:19443
+ingress:
+  host: chat.lab.example.internal
+  homeserverHost: matrix.lab.example.internal
+  httpsPort: 19443
+certificateIssuer: apeiron-internal-ca
 storageClass: local-path
-image: registry.example.internal/apps/tuwunel:test
+rocksdbAllowFallocate: false
+caConfigMap: vasi-matrix-oidc-ca
+imagePullSecrets:
+- name: vasi-registry-pull
+auth:
+  mode: oidc
+  oidc:
+    issuer: https://iam.lab.example.internal:19443/realms/master
+    clientId: vasi-matrix-matrix
+    existingSecret: vasi-matrix-oidc
+    callbackUrl: https://matrix.lab.example.internal:19443/_matrix/client/unstable/login/sso/callback/vasi-matrix-matrix
+element:
+  embedParentOrigins:
+  - https://vasi.lab.example.internal:19443
+egressCidrs: []

@@ -1,3 +1,4 @@
+{{- if .Values.alerts.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -5,7 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
 data:
   config.yaml: |
-    {{- .Files.Get "files/receiver.yaml" | replace "http://matrix-tuwunel.matrix.svc:8008" (printf "http://matrix-tuwunel.%s.svc:8008" .Release.Namespace) | nindent 4 }}
+    {{- .Files.Get "files/receiver.yaml" | replace "http://matrix-tuwunel.matrix.svc:8008" "http://matrix-tuwunel:8008" | nindent 4 }}
 ---
 apiVersion: v1
 kind: Service
@@ -39,7 +40,7 @@ spec:
       labels:
         app: matrix-alert-receiver
       annotations:
-        checksum/config: {{ .Files.Get "files/receiver.yaml" | replace "http://matrix-tuwunel.matrix.svc:8008" (printf "http://matrix-tuwunel.%s.svc:8008" .Release.Namespace) | sha256sum }}
+        checksum/config: {{ printf "%s%s" (.Files.Get "files/receiver.yaml") (.Files.Get "files/alerts.py") | sha256sum }}
     spec:
       automountServiceAccountToken: false
       imagePullSecrets: {{ toJson .Values.imagePullSecrets }}
@@ -49,9 +50,23 @@ spec:
         runAsGroup: 65532
         seccompProfile:
           type: RuntimeDefault
+      initContainers:
+      - name: initialize-alerts
+        image: {{ include "matrix.image" (dict "context" . "role" "initializer") }}
+        command: [python3, /initializer/alerts.py]
+        env:
+        - {name: MATRIX_DOMAIN, value: {{ .Values.domain | quote }}}
+        - {name: MATRIX_TOKEN, valueFrom: {secretKeyRef: {name: matrix-appservice, key: as-token}}}
+        - {name: BASIC_PASSWORD, valueFrom: {secretKeyRef: {name: {{ .Values.alerts.passwordSecret }}, key: password}}}
+        securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+        resources: {requests: {cpu: 10m, memory: 32Mi}, limits: {memory: 128Mi}}
+        volumeMounts:
+        - {name: config, mountPath: /input, readOnly: true}
+        - {name: initializer, mountPath: /initializer, readOnly: true}
+        - {name: runtime, mountPath: /runtime}
       containers:
       - name: receiver
-        image: {{ .Values.registry }}/metio/matrix-alertmanager-receiver:2026.9.23
+        image: {{ include "matrix.image" (dict "context" . "role" "receiver") }}
         imagePullPolicy: IfNotPresent
         args: [--config-path, /etc/receiver/config.yaml]
         ports:
@@ -65,16 +80,13 @@ spec:
             secretKeyRef: {name: matrix-appservice, key: as-token}
         - name: BASIC_PASSWORD        # 与 observability/matrix-alerts 同值（chentu.secrets SHARED_VALUES）
           valueFrom:
-            secretKeyRef: {name: matrix-alerts, key: password}
-        - name: ALERTS_ROOM_ID
-          valueFrom:
-            configMapKeyRef: {name: matrix-alerts-room, key: room-id, optional: true}
+            secretKeyRef: {name: {{ .Values.alerts.passwordSecret }}, key: password}
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
           capabilities: {drop: [ALL]}
         volumeMounts:
-        - {name: config, mountPath: /etc/receiver, readOnly: true}
+        - {name: runtime, mountPath: /etc/receiver, readOnly: true}
         readinessProbe:
           httpGet: {path: /metrics, port: 3000}
           periodSeconds: 10
@@ -89,5 +101,9 @@ spec:
           limits:
             memory: {{ .Values.receiver.memoryLimit }}
       volumes:
+      - {name: runtime, emptyDir: {medium: Memory}}
+      - {name: initializer, configMap: {name: matrix-app-initializer}}
       - name: config
         configMap: {name: matrix-alert-receiver-config}
+
+{{- end }}

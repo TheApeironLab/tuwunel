@@ -1,0 +1,32 @@
+{{- range $app := list (dict "name" "matrix-alert-receiver" "enabled" .Values.alerts.enabled) (dict "name" "matrix-admin-sync" "enabled" .Values.adminSync.enabled) }}
+{{- if $app.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: {{ $app.name }}-egress}
+spec:
+  podSelector: {matchLabels: {app: {{ $app.name }}}}
+  policyTypes: [Egress]
+  egress:
+  - to:
+    - podSelector: {matchLabels: {app: matrix-tuwunel}}
+    ports: [{protocol: TCP, port: 8008}]
+  - to:
+    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+      podSelector: {matchLabels: {k8s-app: kube-dns}}
+    ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+  {{- if eq $app.name "matrix-admin-sync" }}
+  - to:
+    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+      podSelector: {matchLabels: {app.kubernetes.io/name: traefik}}
+    ports: [{protocol: TCP, port: 443}, {protocol: TCP, port: 8443}, {protocol: TCP, port: {{ $.Values.ingress.httpsPort }}}]
+  {{- with $.Values.egressCidrs }}
+  - to:
+    {{- range . }}
+    - ipBlock: {cidr: {{ . | quote }}}
+    {{- end }}
+    ports: [{protocol: TCP, port: {{ $.Values.ingress.httpsPort }}}]
+  {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}

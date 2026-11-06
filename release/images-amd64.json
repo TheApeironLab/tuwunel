@@ -1,0 +1,80 @@
+{
+  "architecture": "amd64",
+  "images": [
+    {
+      "role": "homeserver",
+      "file": "images/tuwunel-amd64.oci.tar",
+      "repository": "matrix-construct/tuwunel",
+      "tag": "v1.9.3",
+      "digest": "sha256:cbc581c5d75025af259576b2d15ca8c5ba4796c5e1474e4836206d3b42d6dda9",
+      "platforms": [
+        {
+          "os": "linux",
+          "architecture": "amd64"
+        }
+      ],
+      "bytes": 44809216,
+      "sha256": "551b6d1e9a87320a25295edd4a4618f0b734b3d007a12768b90dcbc522d696e6"
+    },
+    {
+      "role": "element",
+      "file": "images/element-amd64.oci.tar",
+      "repository": "vectorim/element-web",
+      "tag": "v1.12.30",
+      "digest": "sha256:9189d2871ecc9ba8a79a1a94c29c4696648fbaa7a6979092919d9b18d0f1ae09",
+      "platforms": [
+        {
+          "os": "linux",
+          "architecture": "amd64"
+        }
+      ],
+      "bytes": 64002048,
+      "sha256": "d5afe5df287ab810de23bf4b94e5c30f6503b176c41149f31c9cc893334f4416"
+    },
+    {
+      "role": "backup",
+      "file": "images/backup-amd64.oci.tar",
+      "repository": "library/busybox",
+      "tag": "1.36",
+      "digest": "sha256:b7f3d86d6e84fc17718c48bcde1450807faa2d56704205c697b4bd5df7b9e29f",
+      "platforms": [
+        {
+          "os": "linux",
+          "architecture": "amd64"
+        }
+      ],
+      "bytes": 2213888,
+      "sha256": "a864ba77268dd9c707fdd1544e6aec2546ad651c0ae207d9fa3c1cfb8c2c210e"
+    },
+    {
+      "role": "receiver",
+      "file": "images/receiver-amd64.oci.tar",
+      "repository": "metio/matrix-alertmanager-receiver",
+      "tag": "2026.9.23",
+      "digest": "sha256:e9ab88b729762f3c294152ef8440a5d2915fa1dd6af53a2483d1c0a083079a55",
+      "platforms": [
+        {
+          "os": "linux",
+          "architecture": "amd64"
+        }
+      ],
+      "bytes": 19978752,
+      "sha256": "8842b640a02654c68965f280e5b549dcff5153cffca66813e90622f615b38cee"
+    },
+    {
+      "role": "initializer",
+      "file": "images/initializer-amd64.oci.tar",
+      "repository": "library/python",
+      "tag": "3.12-alpine",
+      "digest": "sha256:69ebe56e2a764c399514a0a6117131cb730cc4d0e71e85c08deb9af74cbb9f41",
+      "platforms": [
+        {
+          "os": "linux",
+          "architecture": "amd64"
+        }
+      ],
+      "bytes": 18060800,
+      "sha256": "705037c52fa8cb80bd7097c595fb77232a330c5eb4886aa6f78bbb1c2e43b825"
+    }
+  ]
+}

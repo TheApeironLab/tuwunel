@@ -1,8 +1,6 @@
 apiVersion: v2
+appVersion: tuwunel v1.9.3 / element-web v1.12.30
+description: Chentu main Matrix/Element topology, independently packaged for Vasi
 name: tuwunel
-description: tuwunel application for Apeiron; independently installed and upgraded.
-version: 0.2.0
 type: application
-appVersion: "tuwunel v1.9.3 / element-web v1.12.30"
-sources:
-  - https://github.com/TheApeironLab/tuwunel
+version: 0.3.0-dev.20261105.1

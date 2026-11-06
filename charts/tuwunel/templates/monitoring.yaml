@@ -1,7 +1,7 @@
 {{- /* 告警通道自身的可观测性（N2 2026-10-03，MSG-7）：receiver 向 Tuwunel 投递失败时仍给 Alertmanager 回 200
 （上游 handler/alerts.go），Alertmanager 记不到失败；所以抓取 receiver 的 /metrics，并对它的失败计数告警。
 通道全断时这条告警同样发不进 #alerts，只能在 Prometheus/Grafana 看到（OBS/MSG 非目标）。没装 kps（无 CRD）时不渲染。 */ -}}
-{{- if .Capabilities.APIVersions.Has "monitoring.coreos.com/v1" }}
+{{- if and .Values.alerts.enabled .Values.monitoring.enabled (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:

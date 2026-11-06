@@ -1,14 +1,20 @@
-# Vasi 统一登录
+# Vasi 受管统一登录契约
 
-本 Chart 独立安装；`auth.mode: external` 保留已有部署方接线，`auth.mode: oidc` 消费 Vasi 登记的身份源。
-`publicUrl` 必须是包含入口端口的 HTTPS origin，`ingress.host` 必须匹配它。客户端、回调、角色和命名空间由 Vasi 的受管 SSO 操作登记；仅上传 Chart 不会创建身份客户端或授予用户权限。
+当前候选要求 `auth.mode: oidc`，由 Vasi 配发专属 client、凭据和公共 CA 引用。
+`publicUrl/ingress.host`（Element）与 `homeserverUrl/ingress.homeserverHost`（homeserver）
+必须为本站不同的 HTTPS origin，包含入口非默认端口。公开 values 可在创建 Secret 前生成并导入检查。
 
-Vasi 写入专属 CA ConfigMap 和凭据 Secret 的引用；values 只保存引用，不保存密码、客户端密钥或用户令牌。制品发布者必须把所有主容器、初始化容器和 sidecar 镜像纳入完整材料清单并提供已导入 Nexus 的固定摘要。
+客户端 ID 为 `vasi-<namespace>-<release>`，回调为
+`<homeserverUrl>/_matrix/client/unstable/login/sso/callback/<clientId>`。
+`auth.oidc.existingSecret` 只提供 `client-secret`，`caConfigMap` 提供 `ca.crt`。
+凭据、kubeconfig 和用户 token 不进入普通 values；不允许外站 SSO 回跳或未经验证的 backchannel。
 
-Chat 的 Element 与 homeserver 使用两个 HTTPS origin：`publicUrl/ingress.host` 与 `homeserverUrl/ingress.homeserverHost`。客户端 ID、issuer、回调均来自 `auth.oidc`；`existingSecret` 提供 `client-secret`，CA 使用 `caConfigMap`。SSO 回跳守门只允许本次配置的完整 origin，包含端口。
+`domain` 是持久 Matrix server_name，Vasi 及 Chart 的身份标记核对 server_name、issuer、client ID；
+有旧 PVC 而无可信身份标记时拒绝接管。0.2.0 外部接线模式或旧 matrix-app 不自动迁移。
+安装不是成员授权：`matrix-user` 才能新登录，管理员同步还需 `matrix-admin` 和已存在的 Matrix 用户。
 
-`domain` 是 Matrix server_name，首次启动后不可改。Vasi 保存 server_name、issuer 和 client ID 的身份绑定并拒绝重绑定；只改前端入口不能改写已有 Matrix 身份。存量 RocksDB 数据卷必须保留。
+告警房间由 namespace-local 初始化器创建/核验；默认不需要 IAM 管理员凭据。
+可选管理员同步须显式准备只读目录客户端，默认关闭；详见 README。
 
-IAM 只管理 Chat 的成员使用资格，不暴露尚未实现的 matrix-admin 同步能力。现有 appservice Secret、告警房间和备份准备仍由部署方显式提供；统一登录不会自动创建告警房间。
-
-原生会话与 Keycloak 会话独立。撤销 IAM 成员资格已阻止新的上游登录；默认 upstream 镜像未实现 Keycloak backchannel logout，已有 Matrix 会话按 `accessTokenTtl/refreshTokenTtl` 到期（默认 refresh 最长七天）。本 Chart 不把“重新登录受阻”声明为“所有旧会话立即退出”。需要即时撤销时必须先提供并验收支持会话绑定的受审镜像，不能仅打开 `ssoSessionBinding`。
+原生 Matrix 会话与 Keycloak 会话独立。无角色用户的新登录拒绝不等于旧会话立即销毁。
+默认 access/refresh TTL 为 1h/7d；全会话撤销与备份恢复须单独验收。
