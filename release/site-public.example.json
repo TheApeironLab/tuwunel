@@ -1,0 +1,7 @@
+{
+  "domain": "lab.example.internal",
+  "issuer": "https://iam.lab.example.internal:19443/realms/master",
+  "httpsPort": 19443,
+  "certificateIssuer": {"name": "apeiron-internal-ca", "kind": "ClusterIssuer", "group": "cert-manager.io"},
+  "storageClass": "local-path"
+}

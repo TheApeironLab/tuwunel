@@ -1,0 +1,41 @@
+{
+  "chentuMain": {
+    "repository": "https://github.com/TheApeironLab/chentu",
+    "commit": "7eebf7456d689ee7b85e494c6531843c4a18e5f4",
+    "files": {
+      "stack/matrix/RUNBOOK.md": "af25302b30242bba126e106c00b9634cbf95a376da8c87a3c4a435f0dbe79bb8",
+      "stack/matrix/artifacts.yaml": "e4f99563abcf62fb9ad8ce5ff20562d6405022811c3148dc8629100cdbde135e",
+      "stack/matrix/backup.sh": "59dbbaf2310b39a244b5db31b3bcbd4ecaafaeecce50a7fd7593859ca27836c2",
+      "stack/matrix/chart/Chart.yaml": "b480e5229b93152d5ed028d13b99d8f0502502e2d54c461bd6c247bbbdda1ac3",
+      "stack/matrix/chart/files/receiver.yaml": "7d363544f82ffd6d98e863d02da5e8d4edd8eeb452172e6e7b6acba61ab8eb35",
+      "stack/matrix/chart/templates/_element.tpl": "d82d2858f8ef0713c6ee23cd92d5bef3bc98f54a9962c7dc5a6d3b1ac2f0e310",
+      "stack/matrix/chart/templates/_tuwunel.tpl": "89fe3695b66bea7e9a2b8f22ddca76e5599e157469057615b211f8eec3c58237",
+      "stack/matrix/chart/templates/element.yaml": "756a0d8c7078d80d942b3da79ecbd432994a3136a0670ba7d504d45b665aafc7",
+      "stack/matrix/chart/templates/ingress.yaml": "c42429c7b43e2f564ba97c87d3abd8cfb8035505dc7faca86b81ea6cd1f729e7",
+      "stack/matrix/chart/templates/monitoring.yaml": "ca452c402377fcf86af699304203c70ffbb20b6b988c96772c892db53bb67c3c",
+      "stack/matrix/chart/templates/networkpolicy.yaml": "636f8c88229a448cf40ed7efc3fe7dbb32c33a27717dba0b534976ed23bddf1e",
+      "stack/matrix/chart/templates/receiver.yaml": "104b3b441d1c4766d21e84e8a5d958e09ae33426a693c70b6bcb200e4ddd2546",
+      "stack/matrix/chart/templates/sso-guard.yaml": "9ba352271af17220fcead381f3815f9c9db53d0ac7faf2650748ba02f77544d0",
+      "stack/matrix/chart/templates/tuwunel.yaml": "3f955428e1678e6743d6affca0dbd1f180118190fe75f56154e8704e06e2017e",
+      "stack/matrix/chart/values.yaml": "9bd7b4f42b8fc33439bbe5e02ad0f9f3adf25bcc2263511fd8582dee7429c4cb",
+      "stack/matrix/configure.sh": "1a3628447764bf40ca089bb5a9d6784df58e1e4488e2922e94050cced59a4150",
+      "stack/matrix/identity-contract.py": "ca244828073e3cd54bdf61136755bf6c55d7962f8836625d34c23b0ae0687687",
+      "stack/matrix/verify.sh": "595f163e19294a82b834dbb7c7b4502709a73835477b1e5c646d3b89e65d8973"
+    }
+  },
+  "applicationAdapter": {
+    "repository": "https://github.com/TheApeironLab/tuwunel",
+    "commit": "78932eb7f0c6952ce46b20ceff98443e29acc896"
+  },
+  "vasiExecutorCommit": "d039ed914cd2f9ab6386a09f769942679a9950a4",
+  "development": true,
+  "adaptations": [
+    "independent source/image contract",
+    "Vasi scoped OIDC and CA references",
+    "public site context to values",
+    "namespace-local alerts initializer",
+    "optional scoped IAM admin sync",
+    "explicit namespace Traefik RBAC prerequisite",
+    "original independent workloads, probes, PVC and ingress preserved"
+  ]
+}

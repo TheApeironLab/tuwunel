@@ -115,3 +115,7 @@ tests/playwright/output.log
 # Editor crashfiles
 *.save
 *.swp
+
+# Python deployment tooling
+__pycache__/
+*.py[cod]

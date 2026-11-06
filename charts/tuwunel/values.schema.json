@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "Vasi publisher image defaults v1",
+  "description": "Applied to publisher values.yaml before site overrides. Runtime enforcement lives in chart_contract.py and chart_images.declarations; Helm additionally validates the Chart's values.schema.json.",
+  "type": "object",
+  "required": [
+    "vasi",
+    "global",
+    "images"
+  ],
+  "properties": {
+    "vasi": {
+      "type": "object",
+      "required": [
+        "imageContract",
+        "complete"
+      ],
+      "properties": {
+        "imageContract": {
+          "const": "vasi.images.v1"
+        },
+        "complete": {
+          "const": true
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "host": {
+          "type": "string"
+        },
+        "publicUrl": {
+          "type": "string"
+        },
+        "tlsSecret": {
+          "type": "string"
+        }
+      }
+    },
+    "global": {
+      "type": "object",
+      "required": [
+        "imageRegistry"
+      ],
+      "properties": {
+        "imageRegistry": {
+          "type": "string"
+        }
+      }
+    },
+    "images": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 50,
+      "additionalProperties": false,
+      "patternProperties": {
+        "^[a-z][a-z0-9_-]{0,62}$": {
+          "$ref": "#/definitions/image"
+        }
+      }
+    },
+    "domain": {
+      "type": "string",
+      "pattern": "^[a-z0-9.-]+$"
+    },
+    "publicUrl": {
+      "type": "string",
+      "pattern": "^$|^https://[A-Za-z0-9.:-]+$"
+    },
+    "homeserverUrl": {
+      "type": "string",
+      "pattern": "^$|^https://[A-Za-z0-9.:-]+$"
+    }
+  },
+  "definitions": {
+    "image": {
+      "type": "object",
+      "required": [
+        "repository",
+        "tag"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "repository": {
+          "type": "string",
+          "maxLength": 255,
+          "pattern": "^[a-z0-9]+(?:[._-]+[a-z0-9]+)*(?:/[a-z0-9]+(?:[._-]+[a-z0-9]+)*)*$"
+        },
+        "tag": {
+          "type": "string",
+          "pattern": "^$|^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^$|^sha256:[0-9a-f]{64}$"
+        }
+      },
+      "anyOf": [
+        {
+          "properties": {
+            "tag": {
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "required": [
+            "digest"
+          ],
+          "properties": {
+            "digest": {
+              "minLength": 1
+            }
+          }
+        }
+      ]
+    }
+  }
+}

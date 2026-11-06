@@ -1,12 +1,7 @@
 {{- define "matrix.tuwunelToml" -}}
 {{- $d := required "domain (SITE_DOMAIN) is required" .Values.domain -}}
 [global]
-{{- if .Values.ssoSessionBinding }}
-{{- if not (regexMatch "@sha256:[a-f0-9]{64}$" .Values.tuwunelImage) }}
-{{- fail "ssoSessionBinding requires a verified Tuwunel image pinned by sha256 digest" }}
-{{- end }}
-sso_require_session_binding = true
-{{- end }}
+{{- if .Values.ssoSessionBinding }}{{ fail "Session binding requires a separately reviewed image and integration" }}{{ end }}
 # server_name 是用户 ID 的后缀（@alice:{{ $d }}），首次启动后写进数据库，之后换域名 Tuwunel
 # 直接拒绝启动（"Database belongs to ..."）。换域名 = 清空聊天数据，见 ADR-0016。
 server_name = {{ $d | quote }}
@@ -61,7 +56,9 @@ admin_signal_execute = ["server backup-database"]
 # 管理员与 Keycloak realm role matrix-admin 同步（N2 2026-10-03，MSG-2）：同步 bot @admin-sync 每次启动被设为管理员
 # （幂等），configure.sh finalize 用它的令牌经 /_synapse/admin 授予/撤销。管理员命令不能在 #admins 之外的房间转义执行
 # （否则命令与回显公开在那个房间里）。
+{{- if .Values.adminSync.enabled }}
 admin_execute = [{{ printf "users make-user-admin @admin-sync:%s" $d | quote }}]
+{{- end }}
 admin_escape_commands = false
 
 [global.well_known]
@@ -85,6 +82,7 @@ default = true
 
 # 告警 bot：appservice 的 as_token 就是 @alertbot 的访问令牌，不需要密码登录。
 # as_token / hs_token 经环境变量 TUWUNEL_APPSERVICE__ALERTS__* 从 Secret matrix-appservice 注入。
+{{- if .Values.alerts.enabled }}
 [global.appservice.alerts]
 sender_localpart = "alertbot"
 
@@ -98,12 +96,15 @@ exclusive = true
 regex = {{ printf "^#alerts:%s$" (regexQuoteMeta $d) | quote }}
 
 # 管理员同步 bot（N2 2026-10-03，MSG-2）：只用来调 /_synapse/admin 授予/撤销管理员、清理测试媒体；令牌在 Secret matrix-admin-appservice。
+{{- end }}
+{{- if .Values.adminSync.enabled }}
 [global.appservice.admin]
 sender_localpart = "admin-sync"
 
 [[global.appservice.admin.users]]
 exclusive = true
 regex = {{ printf "^@admin-sync:%s$" (regexQuoteMeta $d) | quote }}
+{{- end }}
 {{- if .Values.e2eAppservice }}
 
 # 仅测试环境（values e2eAppservice=true）：tests/e2e 用它注册/扮演 @e2e-* 用户。令牌来自 Secret matrix-e2e-appservice。

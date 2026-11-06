@@ -16,6 +16,10 @@ spec:
     ports:
     - {protocol: TCP, port: 8008}
   - from:
+    - podSelector: {matchLabels: {app: matrix-admin-sync}}
+    ports:
+    - {protocol: TCP, port: 8008}
+  - from:
     - podSelector: {matchLabels: {app: matrix-alert-receiver}}
     ports:
     - {protocol: TCP, port: 8008}
@@ -74,12 +78,12 @@ spec:
       podSelector: {matchLabels: {app.kubernetes.io/name: traefik}}
     ports:
     - {protocol: TCP, port: 8443}
-    - {protocol: TCP, port: 443}
+    - {protocol: TCP, port: {{ $.Values.ingress.httpsPort }}}
   {{- with .Values.egressCidrs }}
   - to:
     {{- range . }}
     - ipBlock: {cidr: {{ . | quote }}}
     {{- end }}
     ports:
-    - {protocol: TCP, port: 443}
+    - {protocol: TCP, port: {{ $.Values.ingress.httpsPort }}}
   {{- end }}
