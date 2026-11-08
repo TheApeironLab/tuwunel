@@ -183,3 +183,8 @@ The application-owned Kubernetes chart is [`charts/tuwunel`](charts/tuwunel/READ
 Its `Application chart` workflow produces a standard Helm package and a source/SHA-256
 release record for Vasi import. Site IAM, storage and credentials are supplied through
 the chart's documented values and existing Secret references.
+
+## Unified build entrypoints
+
+Run `make help` for local check/test, image materials, Chart, full/slim packaging
+and verification. See [build and packaging](release/BUILD.md) for dependencies, explicit inputs and immutable outputs.

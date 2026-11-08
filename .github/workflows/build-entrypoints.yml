@@ -1,0 +1,21 @@
+name: Unified build entrypoints
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  local-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.19.0
+      - run: python3 -m pip install -r release/requirements.txt
+      - run: make help
+      - run: make test TEST_SCOPE=contracts

@@ -3,4 +3,4 @@ appVersion: tuwunel v1.9.3 / element-web v1.12.30
 description: Chentu main Matrix/Element topology, independently packaged for Vasi
 name: tuwunel
 type: application
-version: 0.3.0-dev.20261105.1
+version: 0.3.1
