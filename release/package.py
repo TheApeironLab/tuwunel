@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def package(output, development=False, name="tuwunel"):
+def package(output, development=False, name="tuwunel", version=None):
     if name != "tuwunel":
         raise ValueError("unknown application chart")
     output = Path(output).resolve()
@@ -54,9 +54,12 @@ def package(output, development=False, name="tuwunel"):
         json.dumps(source_files, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
     provenance["files"] = source_files
-    version = re.search(
+    native_version = re.search(
         r"^version: ([\w.+-]+)$", (chart / "Chart.yaml").read_text(), re.M
     )[1]
+    version = version or native_version
+    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?", version):
+        raise ValueError("version must be SemVer")
     output.mkdir(parents=True, exist_ok=True)
     target = output / f"{name}-{version}.tgz"
     receipt = output / "tuwunel-chart-release.json"
@@ -80,6 +83,10 @@ def package(output, development=False, name="tuwunel"):
                 ):
                     continue
                 data = source.read_bytes()
+                if source == chart / "Chart.yaml":
+                    data = re.sub(rb"(?m)^version: [^\n]+$", b"version: " + version.encode(), data)
+                if source == chart / "README.md":
+                    data = re.sub("当前 Chart 候选为 `[^`]+`", "当前 Chart 候选为 `" + version + "`", data.decode(), count=1).encode()
                 member = tarfile.TarInfo(
                     name + "/" + source.relative_to(chart).as_posix()
                 )

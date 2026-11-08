@@ -162,6 +162,27 @@ if test "$CI_VERBOSE_ENV" = "true"; then
 	env
 fi
 
+# Opt-in local OCI export used by the unified entrypoint. The historical
+# matrix/publish interface below remains unchanged when this variable is absent.
+if test -n "${TUWUNEL_LOCAL_OCI:-}"; then
+    [[ "$bake_target" == oci && "$cargo_profiles" == '["release"]' &&
+       "$rust_toolchains" == '["stable"]' && "$rust_targets" == '["x86_64-unknown-linux-gnu"]' &&
+       "$feat_sets" == '["default"]' && "$sys_names" == '["debian"]' &&
+       "$sys_versions" == '["testing-slim"]' && "$sys_targets" == '["x86_64-v1-linux-gnu"]' ]] || exit 2
+    [[ "$package_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][A-Za-z0-9.-]+)?$ ]] || exit 2
+    [[ "$TUWUNEL_LOCAL_OCI" == /* && "$TUWUNEL_LOCAL_OCI" != *','* &&
+       "$TUWUNEL_LOCAL_OCI" != *$'\n'* && ! -e "$TUWUNEL_LOCAL_OCI" ]] || exit 2
+    local_args=(--provenance=false --builder "$builder_name" -f "$BASEDIR/bake.hcl"
+        --set "*.platform=linux/amd64"
+        --set "oci*.output=type=oci,dest=$TUWUNEL_LOCAL_OCI,compression=gzip,force-compression=true"
+        --set "oci*.tags=tuwunel-local:$package_version"
+        --set "*.args.nprocs=$nprocs")
+    # The only selected leaf is the native homeserver OCI target. No registry
+    # exporter, --push, cache upload token or package/CI target is selected.
+    docker buildx bake "${local_args[@]}" oci
+    exit $?
+fi
+
 if test "$CI_PRINT_BAKE" = "true"; then
     docker buildx bake --print $arg $bake_target
 fi
