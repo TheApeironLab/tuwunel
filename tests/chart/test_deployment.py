@@ -131,6 +131,41 @@ class Deployment(unittest.TestCase):
             tls, {"matrix-tuwunel-tls", "matrix-element-tls", "matrix-well-known-tls"}
         )
 
+    def test_chat_media_limits_and_element_theme(self):
+        resources = docs(values())
+        config = {
+            d["metadata"]["name"]: d["data"] for d in resources if d["kind"] == "ConfigMap"
+        }
+        server = next(d for d in resources if d["kind"] == "StatefulSet")
+        homeserver = server["spec"]["template"]["spec"]["containers"][0]
+        self.assertEqual(homeserver["resources"]["limits"]["memory"], "4Gi")
+        toml = next(
+            data["tuwunel.toml"] for data in config.values() if "tuwunel.toml" in data
+        )
+        self.assertIn('max_request_size = "1 GiB"', toml)
+
+        element = next(
+            d for d in resources
+            if d["kind"] == "Deployment" and d["metadata"]["name"] == "matrix-element"
+        )
+        pod = element["spec"]["template"]["spec"]
+        mount = next(
+            m for m in pod["containers"][0]["volumeMounts"]
+            if m["mountPath"] == "/app/apeiron-chat"
+        )
+        self.assertTrue(mount["readOnly"])
+        volume = next(v for v in pod["volumes"] if v["name"] == mount["name"])
+        assets = config[volume["configMap"]["name"]]
+        element_config = json.loads(config["matrix-element-config"]["config.json"])
+        self.assertEqual(len(element_config["modules"]), 1)
+        self.assertRegex(element_config["modules"][0], r"^/apeiron-chat/theme\.js\?v=[a-f0-9]{12}$")
+        self.assertIn("theme.js", assets)
+        self.assertIn("theme.css", assets)
+        for key in ["auth_header_logo_url", "welcome_background_url"]:
+            asset_url = element_config["branding"][key]
+            self.assertTrue(asset_url.startswith("/apeiron-chat/"))
+            self.assertIn(asset_url.removeprefix("/apeiron-chat/"), assets)
+
     def test_all_containers_consume_role_digest_overrides(self):
         v = values()
         roles = yaml.safe_load((ROOT / "charts/tuwunel/values.yaml").read_text())[

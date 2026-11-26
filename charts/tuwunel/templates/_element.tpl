@@ -19,7 +19,14 @@ cli/tests/test_matrix_chart.py 断言渲染结果里所有 URL 的主机只有 {
   "disable_custom_urls" true
   "disable_guests" true
   "disable_3pid_login" true
-  "brand" "chentu"
+  "brand" "Apeiron Chat"
+  "modules" (list (printf "/apeiron-chat/theme.js?v=%s" (include "matrix.elementTheme" . | sha256sum | trunc 12)))
+  "branding" (dict
+    "auth_header_logo_url" "/apeiron-chat/wordmark.svg"
+    "welcome_background_url" "/apeiron-chat/sign-in.svg"
+    "logo_link_url" (include "chat.origin" .)
+    "auth_footer_links" (list))
+  "embedded_pages" (dict "login_for_welcome" true)
   "default_country_code" "CN"
   "default_theme" "light"
   "default_federate" false
@@ -50,4 +57,8 @@ force_disable 让 Element 不再提供"开启加密"的开关（服务端 allow_
 {{- toPrettyJson (dict
   "m.homeserver" (dict "base_url" (include "chat.homeserver" .))
   "io.element.e2ee" (dict "default" false "force_disable" true)) }}
+{{- end -}}
+
+{{- define "matrix.elementTheme" -}}
+{{ (.Files.Glob "files/element/*").AsConfig }}
 {{- end -}}

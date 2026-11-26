@@ -10,6 +10,14 @@ data:
     {{- include "matrix.wellKnownClient" . | nindent 4 }}
 ---
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: matrix-element-theme
+  namespace: {{ .Release.Namespace }}
+data:
+  {{- include "matrix.elementTheme" . | nindent 2 }}
+---
+apiVersion: v1
 kind: Service
 metadata:
   name: matrix-element
@@ -65,6 +73,7 @@ spec:
           allowPrivilegeEscalation: false
           capabilities: {drop: [ALL]}
         volumeMounts:
+        - {name: theme, mountPath: /app/apeiron-chat, readOnly: true}
         - {name: config, mountPath: /app/config.json, subPath: config.json, readOnly: true}
         - {name: config, mountPath: /usr/share/nginx/html/.well-known/matrix/client, subPath: well-known-client.json, readOnly: true}
         readinessProbe:
@@ -81,5 +90,7 @@ spec:
           limits:
             memory: {{ .Values.element.memoryLimit }}
       volumes:
+      - name: theme
+        configMap: {name: matrix-element-theme}
       - name: config
         configMap: {name: matrix-element-config}

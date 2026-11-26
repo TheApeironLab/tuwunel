@@ -1,0 +1,140 @@
+/* Apeiron UI 0.1.105 semantic tokens, adapted to Element Web 1.12.30. */
+body.cpd-theme-light {
+    --apeiron-background: #f7f8fb;
+    --apeiron-surface: #ffffff;
+    --apeiron-foreground: #27313d;
+    --apeiron-muted: #5f646e;
+    --apeiron-primary: #0066ba;
+    --apeiron-secondary: #f5f6f8;
+    --apeiron-accent: #dfe4ed;
+    --apeiron-border: #e7eaef;
+    --apeiron-input: #dbdbdb;
+    --apeiron-ring: #0066ba;
+}
+body.cpd-theme-dark {
+    --apeiron-background: #131419;
+    --apeiron-surface: #191b22;
+    --apeiron-foreground: #e8eef5;
+    --apeiron-muted: #858a94;
+    --apeiron-primary: #0066ba;
+    --apeiron-secondary: #2c3340;
+    --apeiron-accent: #005499;
+    --apeiron-border: #222834;
+    --apeiron-input: #222834;
+    --apeiron-ring: #7eb6ee;
+}
+
+/* Compound controls, menus, dialogs and portals inherit these semantic roles. */
+body:is(.cpd-theme-light, .cpd-theme-dark) {
+    --apeiron-control-radius: 6px;
+    --apeiron-panel-radius: 12px;
+    --cpd-font-family-sans: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    --font-family: var(--cpd-font-family-sans);
+    --cpd-color-bg-canvas-default: var(--apeiron-surface);
+    --cpd-color-bg-subtle-primary: var(--apeiron-secondary);
+    --cpd-color-bg-subtle-secondary: var(--apeiron-background);
+    --cpd-color-text-primary: var(--apeiron-foreground);
+    --cpd-color-text-secondary: var(--apeiron-muted);
+    --cpd-color-icon-primary: var(--apeiron-foreground);
+    --cpd-color-icon-secondary: var(--apeiron-muted);
+    --cpd-color-border-subtle: var(--apeiron-border);
+    --cpd-color-separator-primary: var(--apeiron-border);
+    --cpd-color-border-interactive-secondary: var(--apeiron-input);
+    --cpd-color-border-focused: var(--apeiron-ring);
+    --cpd-color-border-accent-primary: var(--apeiron-primary);
+    --cpd-color-icon-accent-primary: var(--apeiron-ring);
+    --cpd-color-text-action-accent: var(--apeiron-ring);
+    --cpd-color-text-link-external: var(--apeiron-ring);
+    --cpd-color-bg-action-primary-rest: var(--apeiron-primary);
+    --cpd-color-bg-action-primary-hovered: color-mix(in srgb, var(--apeiron-primary) 87%, black);
+    --cpd-color-bg-action-primary-pressed: color-mix(in srgb, var(--apeiron-primary) 75%, black);
+    --cpd-color-text-on-solid-primary: white;
+    --cpd-color-icon-on-solid-primary: white;
+    --cpd-color-bg-action-secondary-rest: var(--apeiron-secondary);
+    --cpd-color-bg-action-tertiary-hovered: var(--apeiron-secondary);
+    --cpd-color-bg-action-tertiary-selected: var(--apeiron-accent);
+    --event-tile-bubble-background: var(--apeiron-secondary);
+    --event-tile-bubble-self-background: color-mix(in srgb, var(--apeiron-primary) 13%, var(--apeiron-surface));
+    font-family: var(--cpd-font-family-sans);
+    color: var(--apeiron-foreground);
+}
+
+/* Keep Element's high-contrast palettes, focus behavior and room-list geometry. */
+body:is(.cpd-theme-light, .cpd-theme-dark) :is(.mx_SpacePanel, .mx_LeftPanel, .mx_RoomListPanel) {
+    background-color: var(--apeiron-background);
+    border-color: var(--apeiron-border);
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) :is(.mx_RoomHeader, .mx_RightPanel, .mx_Dialog, .mx_ContextualMenu) {
+    background-color: var(--apeiron-surface);
+    color: var(--apeiron-foreground);
+    border-color: var(--apeiron-border);
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) :is(.mx_Dialog, .mx_ContextualMenu) {
+    border-radius: var(--apeiron-panel-radius);
+    box-shadow: 0 8px 32px rgb(10 25 45 / 15%), 0 0 0 1px var(--apeiron-border);
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_RoomHeader {
+    box-shadow: inset 0 -1px var(--apeiron-border);
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_RoomListItemView {
+    border-radius: var(--apeiron-control-radius);
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_RoomListItemView_selected {
+    background-color: var(--apeiron-accent);
+    box-shadow: inset 3px 0 var(--apeiron-ring);
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_MessageComposer_wrapper {
+    background-color: var(--apeiron-surface);
+    border-color: var(--apeiron-border);
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_MessageComposer_wrapper:focus-within {
+    border-color: var(--apeiron-ring);
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) :is(.mx_AccessibleButton_kind_primary, .mx_AccessibleButton_kind_secondary, button[data-kind]:not([data-icon-only]), .mx_Field input, .mx_Field textarea) {
+    border-radius: var(--apeiron-control-radius);
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_AccessibleButton_kind_primary:not(:disabled, [aria-disabled="true"], .mx_AccessibleButton_disabled) {
+    background-color: var(--apeiron-primary);
+    color: white;
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_AccessibleButton_kind_primary:not(:disabled, [aria-disabled="true"], .mx_AccessibleButton_disabled):hover {
+    background-color: var(--cpd-color-bg-action-primary-hovered);
+}
+
+/* The shared Apeiron sign-in treatment stays dark in both ordinary themes. */
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_AuthPage_modal { border-radius: 16px; }
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_AuthPage_modalContent {
+    border: 1px solid #384353;
+    --cpd-color-text-primary: #e8eef5;
+    --cpd-color-text-secondary: #bdc5d1;
+    --cpd-color-bg-canvas-default: #191b22;
+    --cpd-color-border-interactive-secondary: #667181;
+    --cpd-color-border-focused: #7eb6ee;
+    background-color: #191b22;
+    color: #e8eef5;
+    box-shadow: 0 18px 64px rgb(0 0 0 / 28%);
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_AuthPage_modalContent :is(.mx_AuthBody, .mx_AuthHeader) {
+    background: transparent;
+    color: #e8eef5;
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_AuthBody :is(h1, h2) { color: #e8eef5; }
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_AuthBody a { color: #7eb6ee; }
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_AuthBody .mx_Field input {
+    background-color: #191b22;
+    color: #e8eef5;
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_AuthBody .mx_Field label {
+    color: #bdc5d1;
+    background-color: #191b22;
+}
+.mx_AuthHeaderLogo img { max-width: 100%; height: auto; }
+@media (max-width: 720px) {
+    :root:has(.mx_AuthPage) { overflow-x: clip; }
+    .mx_AuthPage .mx_AuthPage_modal { width: min(100% - 24px, 520px); }
+    .mx_AuthPage .mx_AuthPage_modalContent { flex-direction: column; width: 100%; }
+    .mx_AuthPage .mx_AuthBody { width: 100%; padding: 20px 24px 28px; }
+    .mx_AuthPage .mx_AuthHeader,
+    .mx_AuthPage .mx_AuthHeaderLogo { display: block; }
+    .mx_AuthPage .mx_AuthHeader { width: 160px; padding: 20px 24px 0; }
+}
