@@ -12,29 +12,29 @@ function stylesheet(path) {
     return link;
 }
 
-const loginLayouts = new Map();
-class ChatLogin extends HTMLElement {
-    async connectedCallback() {
-        if (this.shadowRoot) return;
-        const lang = document.documentElement.lang.toLowerCase().startsWith('zh') ? 'zh' : 'en';
-        if (!loginLayouts.has(lang)) {
-            loginLayouts.set(lang, fetch(asset('login-' + lang + '.html')).then(response => {
-                if (!response.ok) throw new Error('Chat login layout unavailable');
-                return response.text();
-            }));
+function registerLogin(mountLogin) {
+    customElements.define('apeiron-chat-login', class extends HTMLElement {
+        connectedCallback() {
+            if (this.unmount) return;
+            const shadow = this.shadowRoot ?? this.attachShadow({ mode: 'open' });
+            const frame = document.createElement('main');
+            frame.className = 'ap-scope';
+            shadow.replaceChildren(stylesheet('components.css'), stylesheet('beams.css'), stylesheet('login.css'), frame);
+            const english = !document.documentElement.lang.toLowerCase().startsWith('zh');
+            this.unmount = mountLogin(frame, english);
+            this.setAttribute('data-ready', '');
         }
-        let layout;
-        try { layout = await loginLayouts.get(lang); }
-        catch { loginLayouts.delete(lang); return; }
-        if (!this.isConnected || this.shadowRoot) return;
-        const frame = document.createElement('main');
-        frame.className = 'ap-scope';
-        // Only the bundled, build-time LoginPage markup is inserted here.
-        frame.innerHTML = layout;
-        const shadow = this.attachShadow({ mode: 'open' });
-        shadow.append(stylesheet('components.css'), stylesheet('login.css'), frame);
-        this.setAttribute('data-ready', '');
-    }
+
+        disconnectedCallback() {
+            const unmount = this.unmount;
+            queueMicrotask(() => {
+                if (!this.isConnected && this.unmount === unmount) {
+                    unmount?.();
+                    this.unmount = null;
+                }
+            });
+        }
+    });
 }
 
 export default class ApeironTheme {
@@ -43,8 +43,8 @@ export default class ApeironTheme {
 
     async load() {
         document.head.append(stylesheet('theme.css'), stylesheet('components.css'));
-        const { createElement, mountNavigation } = await import(asset('navigation.js'));
-        customElements.define('apeiron-chat-login', ChatLogin);
+        const { createElement, mountLogin, mountNavigation } = await import(asset('navigation.js'));
+        registerLogin(mountLogin);
         this.api.customComponents.registerLoginComponent((props, original) =>
             createElement('apeiron-chat-login', null, original(props)));
 

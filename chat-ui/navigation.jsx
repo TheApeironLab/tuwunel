@@ -4,6 +4,7 @@ import { Sidebar, Button } from '@apeiron/ui';
 import { Hash, MessagesSquare, Search, Settings, UserRound } from 'lucide-react';
 
 export { createElement } from 'react';
+export { mountLogin } from './login';
 
 function useRooms(store) {
     const [rooms, setRooms] = useState([]);

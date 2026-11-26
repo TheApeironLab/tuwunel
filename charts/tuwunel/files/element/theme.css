@@ -200,3 +200,25 @@ body:is(.cpd-theme-light-hc, .cpd-theme-dark-hc) .ap-nav { display: none; }
     .ap-workspace.ap-directory [data-panel]:has(.mx_RoomView_wrapper) { display: none !important; }
     .ap-workspace.ap-directory [data-panel]:has(.mx_LeftPanel_outerWrapper) { flex: 1 1 0 !important; }
 }
+
+/* Put the native language switcher in the page header, as in Limani. */
+apeiron-chat-login[data-ready] .mx_AuthPage .mx_AuthHeader {
+    position: fixed; top: 92px; right: clamp(32px, 8vw, 160px); z-index: 4;
+}
+apeiron-chat-login[data-ready] .mx_AuthBody_language { color: #e8eef5; }
+apeiron-chat-login[data-ready] .mx_AuthBody_language .mx_Dropdown_menu {
+    background-color: #191b22; color: #e8eef5;
+}
+/* The Chart pins a single homeserver. Keep the picker when it offers an action. */
+apeiron-chat-login[data-ready] .mx_ServerPicker:not(:has(button, a, [role=button])) { display: none; }
+apeiron-chat-login[data-ready] .mx_AuthBody .mx_Field input {
+    font-size: 14px; padding: 0 14px; border: 1px solid #384353;
+}
+apeiron-chat-login[data-ready] .mx_AuthBody .mx_Field input:is(:focus, :hover) { border-color: #0066ba; }
+apeiron-chat-login[data-ready] .mx_AuthBody .mx_Field:has(input[placeholder]:not([placeholder=""])) label {
+    position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%);
+}
+apeiron-chat-login[data-ready] .mx_AuthBody .mx_Field input::placeholder { color: #858a94; opacity: 1; }
+@media (max-width: 1023px) {
+    apeiron-chat-login[data-ready] .mx_AuthPage .mx_AuthHeader { top: 24px; right: 24px; }
+}

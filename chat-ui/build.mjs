@@ -15,14 +15,12 @@ async function bundle(entry) {
         rolldownOptions: { output: { codeSplitting: false, minify: true } }
     } });
     const output = (Array.isArray(result) ? result[0] : result).output;
+    const componentStyles = output.find(asset => asset.type === 'asset' && asset.fileName.endsWith('.css'));
+    if (!componentStyles) throw new Error('Missing LoginPage Beams styles');
+    await writeFile(new URL('beams.css', out), componentStyles.source);
     const licenses = output.find(asset => asset.fileName === 'licenses.txt');
     if (licenses) await writeFile(new URL('licenses.txt', out), String(licenses.source).replaceAll('\r\n', '\n'));
     return output.find(chunk => chunk.type === 'chunk').code;
-}
-const server = await bundle('login.jsx');
-const { renderLogin } = await import('data:text/javascript;base64,' + Buffer.from(server).toString('base64'));
-for (const [lang, english] of [['zh', false], ['en', true]]) {
-    await writeFile(new URL('login-' + lang + '.html', out), renderLogin(english));
 }
 await writeFile(new URL('navigation.js', out), (await bundle('navigation.jsx')).replace(/^[ \t]+$/gm, ''));
 const css = await build({ ...base, plugins: [tailwind()], build: {
