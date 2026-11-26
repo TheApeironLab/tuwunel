@@ -4,6 +4,8 @@ Element Web v1.12.30 loads the module from the Chart. The native Matrix client o
 
 The sign-in screen mounts the public Apeiron LoginPage with its WebGL2 Beams effect and reduced-motion behavior, as in Limani and Apeiron Ops. Its slot displays Element's live form. The transparent Beams effect is composited over black, including when WebGL2 is unavailable.
 
+When the site's Element configuration sets `io.element.e2ee.force_disable`, Chat skips device crypto startup and takes the user directly to their conversations. The module hooks the pinned v1.12.30 client's initializer because Module API v2 has no crypto-startup hook. Test sign-in, device settings and sign-out against the production Element image when updating it. Tuwunel enforces the room encryption policy independently.
+
 To regenerate the Chart assets, use the installed dependencies from Vasi UI with the private @apeiron/ui 0.1.105 package, React 19.2.7, Tailwind CSS 4.3.3 and Vite 8.2.2. Run from the repository root.
 
 ```sh

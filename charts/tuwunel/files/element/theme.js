@@ -37,11 +37,35 @@ function registerLogin(mountLogin) {
     });
 }
 
+// The Chart's homeserver rejects room encryption. Element 1.12.30 otherwise
+// initializes device crypto even when discovery says rooms must stay plaintext.
+function applyRoomPolicy(config) {
+    const server = config.get('default_server_config');
+    const policy = server?.['io.element.e2ee'];
+    if (policy?.force_disable !== true) return;
+    const peg = window.mxMatrixClientPeg;
+    if (typeof peg?.initClientCrypto !== 'function') {
+        throw new Error('Unsupported Element client initialization for plaintext Chat');
+    }
+    // Preserve session startup and the normal sync/media settings independently
+    // of device crypto. In particular, do not enable Element's low-bandwidth mode.
+    peg.initClientCrypto = async function () {
+        const client = this.safeGet();
+        const discover = client.getClientWellKnown.bind(client);
+        client.getClientWellKnown = () => ({
+            ...(discover() ?? server),
+            'io.element.e2ee': policy,
+        });
+    };
+    document.documentElement.classList.add('ap-plaintext');
+}
+
 export default class ApeironTheme {
     static moduleApiVersion = '^2.2.0';
     constructor(api) { this.api = api; }
 
     async load() {
+        applyRoomPolicy(this.api.config);
         document.head.append(stylesheet('theme.css'), stylesheet('components.css'));
         const { createElement, mountLogin, mountNavigation } = await import(asset('navigation.js'));
         registerLogin(mountLogin);

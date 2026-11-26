@@ -108,6 +108,23 @@ function ChatNavigation({ api, workspace }) {
     function openSignOut() {
         afterDrawerCloses(() => {
             if (!workspace.isConnected || pendingSignOut.current) return;
+            if (document.documentElement.classList.contains('ap-plaintext')) {
+                const title = text('退出登录', 'Sign out');
+                const dialog = api.openDialog({ title }, ({ onSubmit, onCancel }) =>
+                    <div className="mx_Dialog_content">
+                        <p>{text('退出这台设备上的 Chat？', 'Sign out of Chat on this device?')}</p>
+                        <div className="mx_Dialog_buttons">
+                            <button type="button" onClick={onCancel}>{text('取消', 'Cancel')}</button>
+                            <button type="button" className="mx_Dialog_primary" onClick={() => onSubmit(true)}>{title}</button>
+                        </div>
+                    </div>, {});
+                pendingSignOut.current = dialog.close;
+                dialog.finished.then(({ ok }) => {
+                    pendingSignOut.current = null;
+                    if (ok && workspace.isConnected) window.mxDispatcher.dispatch({ action: 'logout' });
+                });
+                return;
+            }
             // Element's module API has no sign-out method. Use the account tab's
             // own action so Element keeps its device recovery and logout flow.
             const selector = '.mx_UserSettingsDialog .mx_UserProfileSettings_profile_buttons .mx_AccessibleButton_kind_danger_outline';

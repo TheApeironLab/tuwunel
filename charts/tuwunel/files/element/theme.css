@@ -266,3 +266,19 @@ apeiron-chat-login[data-ready] .mx_AuthBody_language .mx_Dropdown_input {
     font: 13px/1.4 system-ui, sans-serif;
 }
 .ap-language-icon { position: absolute; left: 8px; color: #858a94; pointer-events: none; }
+
+/* Element strips data-testid from the release image. Scope to production
+   controls so device management and room permissions remain accessible. */
+.ap-plaintext :is(
+    [role="tab"][aria-controls="mx_tabpanel_USER_ENCRYPTION_TAB"],
+    .mx_SettingsSubsection:has(.mx_LoginWithQRSection),
+    .mx_DeviceSecurityCard:has(.mx_DeviceSecurityCard_icon:is(.Verified, .Unverified, .Unverifiable)),
+    .mx_SettingsSubsection:has(> .mx_SettingsSubsection_content > .mx_DeviceSecurityCard:only-child .Unverified),
+    .mx_SettingsSubsection:has(.mx_FilteredDeviceList) > .mx_SettingsSubsection_description,
+    .mx_DeviceTypeIcon_verificationIcon,
+    .mx_DeviceTile_metadata > span:first-child:not(:has(.mx_DeviceTile_inactiveIcon)),
+    .mx_SecurityUserSettingsTab_warning,
+    .mx_UserInfo_startVerification,
+    .mx_CreateRoomDialog .mx_Dialog_content > form > div:has(> div input[role="switch"]:disabled):not(:has(form)),
+    #mx_tabpanel_ROOM_SECURITY_TAB fieldset.mx_SettingsFieldset:first-of-type:has(input[role="switch"]:disabled)
+) { display: none !important; }

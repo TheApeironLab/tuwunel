@@ -14,8 +14,10 @@ cli/tests/test_matrix_chart.py 断言渲染结果里所有 URL 的主机只有 {
 {{- $_ := set $off (printf "UIFeature.%s" .) false -}}
 {{- end -}}
 {{- $_ := set $off "language" .Values.element.defaultLanguage -}}
+{{- $server := include "matrix.wellKnownClient" . | fromJson -}}
+{{- $_ := set (index $server "m.homeserver") "server_name" $d -}}
 {{- $cfg := dict
-  "default_server_config" (dict "m.homeserver" (dict "base_url" (include "chat.homeserver" .) "server_name" $d))
+  "default_server_config" $server
   "disable_custom_urls" true
   "disable_guests" true
   "disable_3pid_login" true

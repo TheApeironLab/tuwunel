@@ -157,6 +157,11 @@ class Deployment(unittest.TestCase):
         volume = next(v for v in pod["volumes"] if v["name"] == mount["name"])
         assets = config[volume["configMap"]["name"]]
         element_config = json.loads(config["matrix-element-config"]["config.json"])
+        policy = {"default": False, "force_disable": True}
+        discovery = json.loads(config["matrix-element-config"]["well-known-client.json"])
+        self.assertEqual(discovery["io.element.e2ee"], policy)
+        self.assertEqual(element_config["default_server_config"]["io.element.e2ee"], policy)
+        self.assertIn("allow_encryption = false", toml)
         self.assertEqual(len(element_config["modules"]), 1)
         self.assertRegex(element_config["modules"][0], r"^/apeiron-chat/theme\.js\?v=[a-f0-9]{12}$")
         required_assets = {
