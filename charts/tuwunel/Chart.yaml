@@ -4,3 +4,7 @@ description: Chentu main Matrix/Element topology, independently packaged for Vas
 name: tuwunel
 type: application
 version: 0.4.1
+annotations:
+  vasi.apeironlab.cn/display-name-zh: "即时聊天"
+  vasi.apeironlab.cn/display-name-en: "Chat"
+  vasi.apeironlab.cn/category: "collaboration"
