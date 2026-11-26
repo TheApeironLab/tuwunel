@@ -28,7 +28,7 @@ const css = await build({ ...base, plugins: [tailwind()], build: {
 } });
 const styles = css.output.find(chunk => chunk.type === 'asset' && chunk.fileName.endsWith('.css')).source;
 // Isolate Preflight and utility classes from the upstream Matrix client.
-// Radix renders the mobile Sidebar and its backdrop in a portal under body.
-const scope = '(.ap-scope, body:has(> [role=dialog] [data-sidebar-trigger])) to (:scope:is(body) > :not([role=dialog], [data-state]))';
+// Radix portals the mobile sidebar and sign-out confirmation under body.
+const scope = '(.ap-scope, body:has(> [role=dialog] [data-sidebar-trigger], > .ap-signout)) to (:scope:is(body) > :not([role=dialog], [data-state]))';
 await writeFile(new URL('components.css', out),
     '@scope ' + scope + '{' + styles.replaceAll(':root', ':scope').replaceAll('.dark{', ':is(.dark, body.cpd-theme-dark:scope){') + '}');

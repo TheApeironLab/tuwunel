@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import { Sidebar, Button } from '@apeiron/ui';
+import { Sidebar, Button, confirm } from '@apeiron/ui';
 import { ArrowLeft, Hash, LogOut, MessagesSquare, Search, Settings, UserRound } from 'lucide-react';
 
 export { createElement } from 'react';
@@ -110,18 +110,17 @@ function ChatNavigation({ api, workspace }) {
             if (!workspace.isConnected || pendingSignOut.current) return;
             if (document.documentElement.classList.contains('ap-plaintext')) {
                 const title = text('退出登录', 'Sign out');
-                const dialog = api.openDialog({ title }, ({ onSubmit, onCancel }) =>
-                    <div className="mx_Dialog_content">
-                        <p>{text('退出这台设备上的 Chat？', 'Sign out of Chat on this device?')}</p>
-                        <div className="mx_Dialog_buttons">
-                            <button type="button" onClick={onCancel}>{text('取消', 'Cancel')}</button>
-                            <button type="button" className="mx_Dialog_primary" onClick={() => onSubmit(true)}>{title}</button>
-                        </div>
-                    </div>, {});
+                const dialog = confirm({
+                    className: 'ap-signout',
+                    title,
+                    content: text('退出这台设备上的 Chat？', 'Sign out of Chat on this device?'),
+                    cancelButtonProps: { children: text('取消', 'Cancel') },
+                    okButtonProps: { children: title },
+                });
                 pendingSignOut.current = dialog.close;
-                dialog.finished.then(({ ok }) => {
+                dialog.then(accepted => {
                     pendingSignOut.current = null;
-                    if (ok && workspace.isConnected) window.mxDispatcher.dispatch({ action: 'logout' });
+                    if (accepted && workspace.isConnected) window.mxDispatcher.dispatch({ action: 'logout' });
                 });
                 return;
             }
