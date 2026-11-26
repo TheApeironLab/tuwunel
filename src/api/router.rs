@@ -9,11 +9,19 @@ pub mod state;
 use axum::{
 	Router,
 	response::IntoResponse,
-	routing::{any, get, post},
+	routing::{MethodRouter, any, get, post, put},
 };
 pub use client_ip::{ConfiguredIpSource, TrustedPeerSubnets};
 use const_str::{concat, join, replace};
 use http::{HeaderValue, header};
+use ruma::api::{
+	IncomingRequest,
+	client::{
+		authenticated_media::{get_content, get_content_as_filename},
+		media::{create_content, create_content_async},
+	},
+	path_builder::PathBuilder,
+};
 use tower_http::set_header::SetResponseHeaderLayer;
 use tuwunel_core::{Server, err};
 
@@ -399,23 +407,41 @@ fn register_client_state_and_sync_routes(router: Router<State>) -> Router<State>
 		.ruma_route(&client::get_hierarchy_route)
 }
 
+fn media_paths<R: IncomingRequest>(
+	router: Router<State>,
+	method: MethodRouter<State>,
+) -> Router<State> {
+	R::PATH_BUILDER
+		.all_paths()
+		.fold(router, |router, path| router.route(path, method.clone()))
+}
+
 fn register_client_media_and_device_routes(
 	router: Router<State>,
 	media_deny_framing: bool,
 	media_deny_inline_styles: bool,
 ) -> Router<State> {
-	let media_content_router = Router::new()
-		.ruma_route(&client::get_content_thumbnail_route)
-		.ruma_route(&client::get_content_route)
-		.ruma_route(&client::get_content_as_filename_route);
+	let media_content_router = Router::new().ruma_route(&client::get_content_thumbnail_route);
+	let media_content_router = media_paths::<get_content::v1::Request>(
+		media_content_router,
+		get(client::get_content_route),
+	);
+	let media_content_router = media_paths::<get_content_as_filename::v1::Request>(
+		media_content_router,
+		get(client::get_content_as_filename_route),
+	);
 
 	let media_content_router =
 		media_content_headers(media_content_router, media_deny_framing, media_deny_inline_styles);
 
+	let router =
+		media_paths::<create_content::v3::Request>(router, post(client::create_content_route));
+	let router = media_paths::<create_content_async::v3::Request>(
+		router,
+		put(client::create_content_async_route),
+	);
 	router
-		.ruma_route(&client::create_content_route)
 		.ruma_route(&client::create_mxc_uri_route)
-		.ruma_route(&client::create_content_async_route)
 		.ruma_route(&client::get_media_preview_route)
 		.ruma_route(&client::get_media_config_route)
 		.ruma_route(&client::get_devices_route)

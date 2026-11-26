@@ -125,6 +125,36 @@ async fn startup_check(self: &Arc<Self>) -> Result {
 		.await
 }
 
+/// Replay a staged media upload with bounded reads. Local stores have no multipart
+/// threshold, so force multipart for large files instead of collecting the stream.
+#[implement(Provider)]
+pub(crate) async fn put_file(&self, path: &str, file: &mut tokio::fs::File) -> Result<PutResult> {
+	use tokio::io::{AsyncReadExt, AsyncSeekExt};
+	const LOCAL_PART: usize = 8 * 1024 * 1024;
+	file.rewind().await?;
+	let size = file.metadata().await?.len();
+	if size == 0 || (size <= LOCAL_PART as u64 && size < self.multipart_threshold() as u64) {
+		let mut bytes = Vec::with_capacity(size as usize);
+		file.read_to_end(&mut bytes).await?;
+		return self
+			.put_single(path, Bytes::from(bytes).into())
+			.await;
+	}
+	let part = match self.multipart_part_size() {
+		| usize::MAX | 0 => LOCAL_PART,
+		| configured => configured,
+	};
+	let chunks = futures::stream::try_unfold((file, part), async |(file, part)| {
+		let mut chunk = Vec::new();
+		let len = (&mut *file)
+			.take(part as u64)
+			.read_to_end(&mut chunk)
+			.await?;
+		Ok((len > 0).then(|| (Bytes::from(chunk), (file, part))))
+	});
+	self.put_multi(path, chunks).await
+}
+
 /// Stores a streamed object under `path`.
 ///
 /// Supplying the total size permits a single-part upload below the configured

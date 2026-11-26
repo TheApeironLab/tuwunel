@@ -93,12 +93,35 @@ impl Data {
 		content_disposition: Option<&ContentDisposition>,
 		content_type: Option<&str>,
 	) -> Result<Vec<u8>> {
+		let key = Self::file_key(mxc, dim, content_disposition, content_type)?;
+		self.publish_file(mxc, user, &key, false);
+		Ok(key)
+	}
+
+	pub(super) fn file_key(
+		mxc: &Mxc<'_>,
+		dim: &Dim,
+		content_disposition: Option<&ContentDisposition>,
+		content_type: Option<&str>,
+	) -> Result<Vec<u8>> {
 		let dim: &[u32] = &[dim.width, dim.height];
 		let key = (mxc, dim, content_disposition, content_type);
-		let key = serialize_key(key)?;
+		Ok(serialize_key(key)?.to_vec())
+	}
+
+	pub(super) fn publish_file(
+		&self,
+		mxc: &Mxc<'_>,
+		user: Option<&UserId>,
+		key: &[u8],
+		pending: bool,
+	) {
 		let mut txn = self.db.txn();
 
-		txn.insert_raw(&self.mediaid_file, &key, []);
+		txn.insert_raw(&self.mediaid_file, key, []);
+		if pending {
+			txn.del_raw(&self.mediaid_pending, mxc.to_string());
+		}
 		if let Some(user) = user {
 			let key = (mxc, user);
 
@@ -106,8 +129,6 @@ impl Data {
 		}
 
 		txn.execute();
-
-		Ok(key.to_vec())
 	}
 
 	/// Insert a pending MXC URI into the database
@@ -122,11 +143,6 @@ impl Data {
 
 		self.mediaid_pending
 			.raw_put(mxc.to_string(), value);
-	}
-
-	/// Remove a pending MXC URI from the database
-	pub(super) fn remove_pending_mxc(&self, mxc: &Mxc<'_>) {
-		self.mediaid_pending.remove(&mxc.to_string());
 	}
 
 	/// Count the number of pending MXC URIs for a specific user

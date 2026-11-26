@@ -1,6 +1,13 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-use axum::extract::State;
+use axum::{
+	body::Body,
+	extract::{FromRequest, Request, State},
+	response::{IntoResponse, Response},
+};
+use bytes::Bytes;
+use futures::{Stream, TryStreamExt};
+use http::header::CONTENT_LENGTH;
 use reqwest::Url;
 use ruma::{
 	MilliSecondsSinceUnixEpoch, Mxc, UserId,
@@ -24,7 +31,7 @@ use tuwunel_service::{
 	media::{Animate, CACHE_CONTROL_IMMUTABLE, CORP_CROSS_ORIGIN, Dim, MXC_LENGTH, Media},
 };
 
-use crate::{ClientIp, Ruma};
+use crate::{ClientIp, Ruma, RumaResponse};
 
 /// # `GET /_matrix/client/v1/media/config`
 pub(crate) async fn get_media_config_route(
@@ -34,6 +41,31 @@ pub(crate) async fn get_media_config_route(
 	Ok(get_media_config::v1::Response {
 		upload_size: ruma_from_usize(services.server.config.max_request_size),
 	})
+}
+
+/// Authenticate the headers and route parameters with Ruma before polling the raw body.
+async fn upload_request<T>(
+	request: Request,
+	services: &crate::State,
+) -> Result<(Ruma<T>, impl Stream<Item = Result<Bytes>> + Send + use<T>)>
+where
+	Ruma<T>: FromRequest<crate::State, Body, Rejection = tuwunel_core::Error>,
+{
+	let (parts, input) = request.into_parts();
+	let length = parts
+		.headers
+		.get(CONTENT_LENGTH)
+		.and_then(|value| value.to_str().ok())
+		.and_then(|value| value.parse::<u64>().ok());
+	let args =
+		Ruma::<T>::from_request(Request::from_parts(parts, Body::empty()), services).await?;
+	if length.is_some_and(|bytes| bytes > services.server.config.max_request_size as u64) {
+		return Err!(Request(TooLarge("Media exceeds upload limit")));
+	}
+	let chunks = input
+		.into_data_stream()
+		.map_err(|_| err!(Request(InvalidParam("Incomplete media upload"))));
+	Ok((args, chunks))
 }
 
 /// # `POST /_matrix/media/v3/upload`
@@ -51,8 +83,10 @@ pub(crate) async fn get_media_config_route(
 pub(crate) async fn create_content_route(
 	State(services): State<crate::State>,
 	ClientIp(client): ClientIp,
-	body: Ruma<create_content::v3::Request>,
-) -> Result<create_content::v3::Response> {
+	request: Request,
+) -> Result<RumaResponse<create_content::v3::Response>> {
+	let (body, stream) =
+		upload_request::<create_content::v3::Request>(request, &services).await?;
 	let user = body.sender_user();
 
 	let filename = body.filename.as_deref();
@@ -65,13 +99,13 @@ pub(crate) async fn create_content_route(
 
 	services
 		.media
-		.create(mxc, Some(user), Some(&content_disposition), content_type, &body.file)
+		.store_upload(mxc, user, &content_disposition, content_type, false, stream)
 		.await?;
 
-	Ok(create_content::v3::Response {
+	Ok(RumaResponse(create_content::v3::Response {
 		content_uri: mxc.to_string().into(),
 		blurhash: None,
-	})
+	}))
 }
 
 /// # `POST /_matrix/media/v1/create`
@@ -126,8 +160,10 @@ pub(crate) async fn create_mxc_uri_route(
 pub(crate) async fn create_content_async_route(
 	State(services): State<crate::State>,
 	ClientIp(client): ClientIp,
-	body: Ruma<create_content_async::v3::Request>,
-) -> Result<create_content_async::v3::Response> {
+	request: Request,
+) -> Result<RumaResponse<create_content_async::v3::Response>> {
+	let (body, stream) =
+		upload_request::<create_content_async::v3::Request>(request, &services).await?;
 	let user = body.sender_user();
 	let mxc = Mxc {
 		server_name: &body.server_name,
@@ -140,10 +176,10 @@ pub(crate) async fn create_content_async_route(
 
 	services
 		.media
-		.upload_pending(&mxc, user, Some(&content_disposition), content_type, &body.file)
+		.store_upload(&mxc, user, &content_disposition, content_type, true, stream)
 		.await?;
 
-	Ok(create_content_async::v3::Response {})
+	Ok(RumaResponse(create_content_async::v3::Response {}))
 }
 
 /// # `GET /_matrix/client/v1/media/thumbnail/{serverName}/{mediaId}`
@@ -196,26 +232,15 @@ pub(crate) async fn get_content_thumbnail_route(
 pub(crate) async fn get_content_route(
 	State(services): State<crate::State>,
 	ClientIp(client): ClientIp,
-	body: Ruma<get_content::v1::Request>,
-) -> Result<get_content::v1::Response> {
+	request: Request,
+) -> Result<Response> {
+	let body = Ruma::<get_content::v1::Request>::from_request(request, &services).await?;
 	let mxc = Mxc {
 		server_name: &body.server_name,
 		media_id: &body.media_id,
 	};
 
-	let Media {
-		content,
-		content_type,
-		content_disposition,
-	} = fetch_file(&services, &mxc, body.timeout_ms, None).await?;
-
-	Ok(get_content::v1::Response {
-		file: content,
-		content_type: content_type.map(Into::into),
-		cross_origin_resource_policy: Some(CORP_CROSS_ORIGIN.into()),
-		cache_control: Some(CACHE_CONTROL_IMMUTABLE.into()),
-		content_disposition,
-	})
+	download(&services, &mxc, body.timeout_ms, None).await
 }
 
 /// # `GET /_matrix/client/v1/media/download/{serverName}/{mediaId}/{fileName}`
@@ -230,26 +255,16 @@ pub(crate) async fn get_content_route(
 pub(crate) async fn get_content_as_filename_route(
 	State(services): State<crate::State>,
 	ClientIp(client): ClientIp,
-	body: Ruma<get_content_as_filename::v1::Request>,
-) -> Result<get_content_as_filename::v1::Response> {
+	request: Request,
+) -> Result<Response> {
+	let body =
+		Ruma::<get_content_as_filename::v1::Request>::from_request(request, &services).await?;
 	let mxc = Mxc {
 		server_name: &body.server_name,
 		media_id: &body.media_id,
 	};
 
-	let Media {
-		content,
-		content_type,
-		content_disposition,
-	} = fetch_file(&services, &mxc, body.timeout_ms, Some(&body.filename)).await?;
-
-	Ok(get_content_as_filename::v1::Response {
-		file: content,
-		content_type: content_type.map(Into::into),
-		cross_origin_resource_policy: Some(CORP_CROSS_ORIGIN.into()),
-		cache_control: Some(CACHE_CONTROL_IMMUTABLE.into()),
-		content_disposition,
-	})
+	download(&services, &mxc, body.timeout_ms, Some(&body.filename)).await
 }
 
 /// # `GET /_matrix/client/v1/media/preview_url`
@@ -330,30 +345,45 @@ async fn fetch_thumbnail(
 	})
 }
 
-async fn fetch_file(
+async fn download(
 	services: &Services,
 	mxc: &Mxc<'_>,
-	timeout_ms: Duration,
+	timeout: Duration,
 	filename: Option<&str>,
-) -> Result<Media> {
-	let Media {
-		content,
-		content_type,
-		content_disposition,
-	} = services
-		.media
-		.get_or_fetch(mxc, timeout_ms)
-		.await?;
-
-	let content_disposition = Some(make_content_disposition(
-		content_disposition.as_ref(),
-		content_type.as_deref(),
-		filename,
-	));
-
-	Ok(Media {
-		content,
-		content_type,
-		content_disposition,
+) -> Result<Response> {
+	let started = Instant::now();
+	let (payload, size, content_type, disposition) =
+		if let Some((meta, object)) = services.media.open_stored(mxc, timeout).await {
+			let size = object.meta.size;
+			(
+				Body::from_stream(object.into_stream()),
+				size,
+				meta.content_type,
+				meta.content_disposition,
+			)
+		} else {
+			// Preserve lazy URL previews and the existing remote federation fetch path.
+			let media = services
+				.media
+				.get_or_fetch(mxc, timeout.saturating_sub(started.elapsed()))
+				.await?;
+			let size = media.content.len() as u64;
+			(Body::from(media.content), size, media.content_type, media.content_disposition)
+		};
+	let disposition =
+		make_content_disposition(disposition.as_ref(), content_type.as_deref(), filename);
+	let response = RumaResponse(get_content::v1::Response {
+		file: Vec::new(),
+		content_type: content_type.map(Into::into),
+		cross_origin_resource_policy: Some(CORP_CROSS_ORIGIN.into()),
+		cache_control: Some(CACHE_CONTROL_IMMUTABLE.into()),
+		content_disposition: Some(disposition),
 	})
+	.into_response();
+	if !response.status().is_success() {
+		return Ok(response);
+	}
+	let (mut parts, _) = response.into_parts();
+	parts.headers.insert(CONTENT_LENGTH, size.into());
+	Ok(Response::from_parts(parts, payload))
 }
