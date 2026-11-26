@@ -5672,6 +5672,7 @@ dependencies = [
  "sha2",
  "similar 3.2.0",
  "subtle",
+ "tempfile",
  "termimad",
  "tokio",
  "tracing",

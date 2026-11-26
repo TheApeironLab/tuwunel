@@ -22,6 +22,6 @@ pub use dimension::Dim;
 pub(super) use encode::encode_frames;
 #[cfg(all(test, feature = "media_thumbnail"))]
 pub(super) use generate::thumbnail_generate;
-pub(super) use sniff::sequence;
 #[cfg(test)]
 pub(super) use sniff::{animated_type, animates};
+pub(super) use sniff::{sequence, sequence_reader};

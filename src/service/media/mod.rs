@@ -4,6 +4,7 @@ mod preview;
 mod remote;
 mod tests;
 mod thumbnail;
+mod transfer;
 #[cfg(feature = "media_thumbnail")]
 mod video;
 use std::{
@@ -232,16 +233,7 @@ impl Service {
 		Ok(())
 	}
 
-	/// Uploads content to a pending media ID.
-	#[tracing::instrument(level = "debug", skip(self))]
-	pub async fn upload_pending(
-		&self,
-		mxc: &Mxc<'_>,
-		user: &UserId,
-		content_disposition: Option<&ContentDisposition>,
-		content_type: Option<&str>,
-		file: &[u8],
-	) -> Result {
+	async fn check_pending(&self, mxc: &Mxc<'_>, user: &UserId) -> Result {
 		let Ok((owner_id, expires_at)) = self.db.search_pending_mxc(mxc).await else {
 			if self.get_metadata(mxc).await.is_some() {
 				return Err!(Request(CannotOverwriteMedia("Media ID already has content")));
@@ -259,11 +251,10 @@ impl Service {
 			return Err!(Request(NotFound("Pending media ID expired")));
 		}
 
-		self.create(mxc, Some(user), content_disposition, content_type, file)
-			.await?;
+		Ok(())
+	}
 
-		self.db.remove_pending_mxc(mxc);
-
+	fn notify_pending(&self, mxc: &Mxc<'_>) -> Result {
 		let mxc_uri: OwnedMxcUri = mxc.to_string().into();
 		let notifier = self.mxc_state.notifiers.lock()?.remove(&mxc_uri);
 
@@ -431,26 +422,31 @@ impl Service {
 			return Err!(Request(NotFound("Media not found.")));
 		};
 
-		let Ok(_pending) = self.db.search_pending_mxc(mxc).await else {
-			return Err!(Request(NotFound("Media not found.")));
-		};
+		self.wait_pending(mxc, timeout).await?;
+		self.get_stored(mxc).await
+	}
 
+	async fn wait_pending(&self, mxc: &Mxc<'_>, timeout: Duration) -> Result {
+		if self.db.search_pending_mxc(mxc).await.is_err() {
+			return Err!(Request(NotFound("Media not found.")));
+		}
 		let notifier = self
 			.mxc_state
 			.notifiers
 			.lock()?
 			.entry(mxc.to_string().into())
-			.or_insert_with(|| Arc::new(Notify::new()))
+			.or_default()
 			.clone();
-
-		if tokio::time::timeout(timeout, notifier.notified())
-			.await
-			.is_err()
-		{
+		let wake = notifier.notified();
+		tokio::pin!(wake);
+		wake.as_mut().enable();
+		// A writer can finish between the first lookup and subscribing.
+		if self.db.search_pending_mxc(mxc).await.is_err() {
+			self.notify_pending(mxc)?;
+		} else if tokio::time::timeout(timeout, wake).await.is_err() {
 			return Err!(Request(NotYetUploaded("Media has not been uploaded yet")));
 		}
-
-		self.get_stored(mxc).await
+		Ok(())
 	}
 
 	/// Get file from local storage.

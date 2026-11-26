@@ -12,7 +12,9 @@
 //! rather than a violation; what a picture is names nothing the walk did not
 //! settle, since a guess there would be written down as fact.
 
-use tuwunel_core::{implement, utils::math::checked_ops};
+use std::io::{self, Cursor, Read, Seek, SeekFrom};
+
+use tuwunel_core::implement;
 
 use super::animate::{APNG, GIF, WEBP};
 
@@ -141,52 +143,56 @@ fn animated_type(self) -> Option<&'static str> {
 /// walk that runs out of picture, or meets a structure it does not know,
 /// answers `Unsettled` instead of guessing either way.
 pub(in super::super) fn sequence(bytes: &[u8]) -> Sequence {
-	let is_gif = GIF_MAGIC
+	sequence_reader(&mut Cursor::new(bytes)).expect("reading a slice cannot fail")
+}
+
+/// Sniff both staged uploads and in-memory thumbnails without loading picture data.
+pub(in super::super) fn sequence_reader<R: Read + Seek>(reader: &mut R) -> io::Result<Sequence> {
+	let mut header = [0; 21];
+	let mut used = 0;
+	while used < header.len() {
+		let count = reader.read(&mut header[used..])?;
+		if count == 0 {
+			break;
+		}
+		used += count;
+	}
+	let bytes = &header[..used];
+	let (kind, settled) = if bytes.starts_with(PNG_MAGIC) {
+		reader.seek(SeekFrom::Start(8))?;
+		(APNG, png_sequence(reader))
+	} else if bytes.starts_with(RIFF_MAGIC) && bytes.get(8..12) == Some(WEBP_MAGIC) {
+		(WEBP, Ok(webp_sequence(bytes)))
+	} else if GIF_MAGIC
 		.iter()
-		.any(|magic| bytes.starts_with(magic));
-
-	let (content_type, settled) = match bytes {
-		| _ if bytes.starts_with(PNG_MAGIC) => (APNG, png_sequence(bytes)),
-		| _ if bytes.starts_with(RIFF_MAGIC) && bytes.get(8..12) == Some(WEBP_MAGIC) =>
-			(WEBP, webp_sequence(bytes)),
-		| _ if is_gif => (GIF, gif_sequence(bytes)),
-		| _ => return Sequence::Absent,
+		.any(|magic| bytes.starts_with(magic))
+	{
+		(GIF, gif_sequence(reader, bytes))
+	} else {
+		return Ok(Sequence::Absent);
 	};
-
 	match settled {
-		| Some(true) => Sequence::Present(content_type),
-		| Some(false) => Sequence::Absent,
-		| None => Sequence::Unsettled,
+		| Ok(Some(true)) => Ok(Sequence::Present(kind)),
+		| Ok(Some(false)) => Ok(Sequence::Absent),
+		| Ok(None) => Ok(Sequence::Unsettled),
+		| Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => Ok(Sequence::Unsettled),
+		| Err(e) => Err(e),
 	}
 }
 
-/// Whether a PNG holds the control chunk that makes it an APNG.
-///
-/// Each hop clears a whole chunk, so the walk advances by at least its twelve
-/// byte frame every time and ends when a hop lands past the picture.
-fn png_sequence(bytes: &[u8]) -> Option<bool> {
-	let mut rest = bytes.get(PNG_MAGIC.len()..)?;
-
+fn png_sequence<R: Read + Seek>(reader: &mut R) -> io::Result<Option<bool>> {
 	loop {
-		let kind = rest.get(4..8)?;
-
+		let mut length = [0; 4];
+		let mut kind = [0; 4];
+		reader.read_exact(&mut length)?;
+		reader.read_exact(&mut kind)?;
 		if kind == PNG_ANIMATION {
-			return Some(true);
+			return Ok(Some(true));
 		}
-
 		if kind == PNG_DATA {
-			return Some(false);
+			return Ok(Some(false));
 		}
-
-		// the length counts the data alone, which follows a four byte length
-		// and a four byte type and precedes a four byte checksum
-		rest = rest
-			.get(..4)
-			.and_then(|field| field.try_into().ok())
-			.map(u32::from_be_bytes)
-			.and_then(|length| usize::try_from(length).ok())
-			.and_then(|length| length.checked_add(12))
-			.and_then(|skip| rest.get(skip..))?;
+		reader.seek_relative(i64::from(u32::from_be_bytes(length)) + 4)?;
 	}
 }
 
@@ -214,73 +220,44 @@ fn webp_sequence(bytes: &[u8]) -> Option<bool> {
 /// until a second image is found or the trailer ends them. Every block clears
 /// at least its own introducer and a terminating sub-block, so the offset
 /// rises on every pass and a walk that runs off the picture ends.
-fn gif_sequence(bytes: &[u8]) -> Option<bool> {
-	let &screen = bytes.get(10)?;
-	let global_table = (screen & GIF_COLOR_TABLE != 0)
-		.then(|| color_table_len(screen))
-		.unwrap_or_default();
-
-	let mut at = global_table.checked_add(GIF_HEADER_LEN)?;
+fn gif_sequence<R: Read + Seek>(reader: &mut R, header: &[u8]) -> io::Result<Option<bool>> {
+	let Some(&screen) = header.get(10) else {
+		return Ok(None);
+	};
+	reader.seek(SeekFrom::Start(GIF_HEADER_LEN as u64 + color_table_len(screen)))?;
 	let mut seen = false;
-
 	loop {
-		let &block = bytes.get(at)?;
-		let image = block == GIF_IMAGE;
-
-		if image && seen {
-			return Some(true);
+		match read_byte(reader)? {
+			| GIF_TRAILER => return Ok(Some(false)),
+			| GIF_EXTENSION => reader.seek_relative(1)?,
+			| GIF_IMAGE if seen => return Ok(Some(true)),
+			| GIF_IMAGE => {
+				seen = true;
+				reader.seek_relative(8)?;
+				let packed = read_byte(reader)?;
+				reader.seek_relative(color_table_len(packed) as i64 + 1)?;
+			},
+			| _ => return Ok(None),
 		}
-
-		seen |= image;
-
-		let next = match block {
-			| GIF_TRAILER => return Some(false),
-			| GIF_EXTENSION => at.checked_add(2),
-			| GIF_IMAGE => image_data_start(bytes, at),
-			| _ => return None,
-		};
-
-		at = next.and_then(|next| skip_sub_blocks(bytes, next))?;
-	}
-}
-
-/// Size in bytes of the colour table a descriptor announces.
-///
-/// The size field is an exponent rather than a count, and each entry is a
-/// three byte colour.
-fn color_table_len(packed: u8) -> usize {
-	let exponent = u32::from(packed & GIF_TABLE_SIZE).saturating_add(1);
-
-	2_usize.saturating_pow(exponent).saturating_mul(3)
-}
-
-/// Offset of an image descriptor's sub-block chain.
-///
-/// The descriptor is a fixed nine bytes carrying the flag for a colour table
-/// of its own, and one further byte holds the code size the data opens with.
-fn image_data_start(bytes: &[u8], at: usize) -> Option<usize> {
-	let descriptor = at.checked_add(1)?;
-	let packed = *bytes.get(descriptor.checked_add(8)?)?;
-	let local_table = (packed & GIF_COLOR_TABLE != 0)
-		.then(|| color_table_len(packed))
-		.unwrap_or_default();
-
-	checked_ops!(descriptor + 9 + local_table + 1)
-}
-
-/// Offset past the sub-block chain starting here, when it ends.
-///
-/// Each block announces its own length and a zero length closes the chain, so
-/// every pass clears at least the length byte and a chain that neither closes
-/// nor runs out of picture cannot occur.
-fn skip_sub_blocks(bytes: &[u8], mut at: usize) -> Option<usize> {
-	loop {
-		let size = usize::from(*bytes.get(at)?);
-
-		at = checked_ops!(at + 1 + size)?;
-
-		if size == 0 {
-			return Some(at);
+		loop {
+			let count = read_byte(reader)?;
+			if count == 0 {
+				break;
+			}
+			reader.seek_relative(i64::from(count))?;
 		}
 	}
+}
+
+fn read_byte(reader: &mut impl Read) -> io::Result<u8> {
+	let mut byte = [0];
+	reader.read_exact(&mut byte)?;
+	Ok(byte[0])
+}
+
+fn color_table_len(packed: u8) -> u64 {
+	if packed & GIF_COLOR_TABLE == 0 {
+		return 0;
+	}
+	3u64 << (u32::from(packed & GIF_TABLE_SIZE) + 1)
 }
