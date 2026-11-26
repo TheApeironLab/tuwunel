@@ -7,6 +7,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import tarfile
@@ -84,6 +85,16 @@ def docs(v):
 
 
 class Deployment(unittest.TestCase):
+    def test_cli_device_callback_uses_only_the_homeserver_origin(self):
+        v = values(19443)
+        route = next(d for d in docs(v) if d["metadata"]["name"] == "matrix-sso-redirect")
+        rule = route["spec"]["routes"][0]["match"]
+        pattern = re.search(r"QueryRegexp\(`redirectUrl`, `([^`]+)`\)", rule)[1]
+        callback = v["homeserverUrl"] + "/_tuwunel/oidc/device_callback?user_code=BCDFG-HJKLM"
+        self.assertRegex(callback, pattern)
+        self.assertNotRegex(callback + "&next=https://other.example.internal", pattern)
+        self.assertNotRegex(callback.replace(v["homeserverUrl"], "https://other.example.internal"), pattern)
+
     def test_cidr_networkpolicy_preserves_root_context_and_public_port(self):
         for port in [443, 19443]:
             with self.subTest(port=port):

@@ -177,6 +177,10 @@ every message and our responsibility to the other in every conversation.
 <!-- ANCHOR_END: footer -->
 
 
+## Chat CLI
+
+The [Rust CLI](chat-cli/README.md) supports member SSO, room messages and streaming attachment transfers for agents.
+
 ## Apeiron Helm application
 
 The application-owned Kubernetes chart is [`charts/tuwunel`](charts/tuwunel/README.md).
