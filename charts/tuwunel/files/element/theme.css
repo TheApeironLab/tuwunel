@@ -138,3 +138,65 @@ body:is(.cpd-theme-light, .cpd-theme-dark) .mx_AuthBody .mx_Field label {
     .mx_AuthPage .mx_AuthHeaderLogo { display: block; }
     .mx_AuthPage .mx_AuthHeader { width: 160px; padding: 20px 24px 0; }
 }
+
+/* The LoginPage slot contains Element's original form, identity providers,
+   error messages, language selector and sync status. */
+apeiron-chat-login[data-ready] .mx_AuthPage {
+    height: auto; min-height: 0; overflow: visible;
+    background: transparent !important;
+}
+apeiron-chat-login[data-ready] .mx_AuthPage .mx_AuthPage_modal {
+    width: 100%; max-width: none; margin: 0; border: 0; box-shadow: none;
+}
+apeiron-chat-login[data-ready] .mx_AuthPage .mx_AuthPage_modalContent {
+    width: 100%; flex-direction: column; border: 0; border-radius: 0;
+    background: transparent; box-shadow: none;
+}
+apeiron-chat-login[data-ready] :is(.mx_AuthPage_modalBlur, .mx_AuthHeaderLogo, .mx_AuthFooter) { display: none; }
+apeiron-chat-login[data-ready] .mx_AuthPage .mx_AuthBody { width: 100%; max-width: none; padding: 0; }
+apeiron-chat-login[data-ready] .mx_AuthPage .mx_AuthHeader { display: flex; width: auto; padding: 0; align-self: end; }
+apeiron-chat-login[data-ready] .mx_AuthBody > h1 { font-size: 0; margin: 0; }
+apeiron-chat-login[data-ready] .mx_AuthBody :is(.mx_Login_submit, .mx_SSOButton, input[type=text], input[type=password]) {
+    min-height: 48px; border-radius: 6px; font-size: 16px;
+}
+apeiron-chat-login[data-ready] .mx_AuthBody :is(.mx_Login_submit, .mx_SSOButton) { width: 100%; }
+.ap-nav { flex: 0 0 auto; min-height: 0; height: 100%; font: 14px/1.5 system-ui,sans-serif; }
+.ap-brand { width: 115px; height: 25px; object-fit: contain; }
+.ap-nav [data-collapsed=true] .ap-brand { width: 60px; }
+body.cpd-theme-light .ap-brand { content: url("./wordmark-light.svg"); }
+
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace:not(.ap-directory)
+    :is(.mx_SpacePanel, [data-panel]:has(.mx_LeftPanel_outerWrapper), .mx_Separator) { display: none !important; }
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace [data-panel]:has(.mx_RoomView_wrapper) { flex: 1 1 0 !important; }
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace {
+    background: var(--apeiron-background); -webkit-font-smoothing: antialiased;
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace .mx_RoomView_wrapper {
+    margin: 20px 24px; height: calc(100% - 40px); border: 1px solid var(--apeiron-border);
+    background: var(--apeiron-surface); border-radius: 12px;
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace .mx_RoomHeader { min-height: 60px; padding-inline: 20px; }
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace .mx_NewRoomIntro {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px;
+    padding: 12px 16px; margin: 12px 16px 18px; border: 1px solid var(--apeiron-border);
+    border-radius: 8px; background: var(--apeiron-background);
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace .mx_NewRoomIntro > h2 { margin: 0; font-size: 16px; }
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace .mx_NewRoomIntro > p { font-size: 13px; }
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace .mx_NewRoomIntro_buttons { margin: 0 0 0 auto; }
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace .mx_MessageComposer_wrapper {
+    margin: 8px 16px 14px; border: 1px solid var(--apeiron-input); border-radius: 8px;
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace .mx_MessageComposer_wrapper:focus-within { border-color: var(--apeiron-ring); }
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace .mx_MessageComposer { padding-bottom: 0; }
+body:is(.cpd-theme-light-hc, .cpd-theme-dark-hc) .ap-nav { display: none; }
+@media (max-width: 767px) {
+    .ap-workspace { flex-direction: column; }
+    .ap-nav { height: auto; }
+    .ap-workspace > [data-group], .ap-workspace > [data-panel-group] { flex: 1; min-height: 0; }
+    body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace .mx_RoomView_wrapper {
+        margin: 0; height: 100%; border-radius: 0; border: 0;
+    }
+    .ap-workspace.ap-directory [data-panel]:has(.mx_RoomView_wrapper) { display: none !important; }
+    .ap-workspace.ap-directory [data-panel]:has(.mx_LeftPanel_outerWrapper) { flex: 1 1 0 !important; }
+}

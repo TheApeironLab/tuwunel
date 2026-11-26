@@ -159,8 +159,15 @@ class Deployment(unittest.TestCase):
         element_config = json.loads(config["matrix-element-config"]["config.json"])
         self.assertEqual(len(element_config["modules"]), 1)
         self.assertRegex(element_config["modules"][0], r"^/apeiron-chat/theme\.js\?v=[a-f0-9]{12}$")
-        self.assertIn("theme.js", assets)
-        self.assertIn("theme.css", assets)
+        required_assets = {
+            "theme.js", "theme.css", "navigation.js", "components.css", "wordmark-light.svg",
+            "login-en.html", "login-zh.html", "login.css",
+        }
+        self.assertTrue(required_assets.issubset(assets))
+        self.assertLess(sum(len(content.encode()) for content in assets.values()), 1024**2)
+        for lang in ("en", "zh"):
+            self.assertIn("<slot>", assets[f"login-{lang}.html"])
+
         for key in ["auth_header_logo_url", "welcome_background_url"]:
             asset_url = element_config["branding"][key]
             self.assertTrue(asset_url.startswith("/apeiron-chat/"))
