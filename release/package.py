@@ -15,7 +15,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def package(output, development=False, name="tuwunel", version=None):
+def image_lock(architecture):
+    if architecture not in ("arm64", "amd64"):
+        raise ValueError("unsupported image architecture")
+    lock = json.loads((ROOT / "release" / f"images-{architecture}.json").read_text())
+    if lock["architecture"] != architecture:
+        raise ValueError("image lock architecture differs")
+    return lock
+
+
+def package(output, development=False, name="tuwunel", version=None, architecture=None):
     if name != "tuwunel":
         raise ValueError("unknown application chart")
     output = Path(output).resolve()
@@ -32,6 +41,20 @@ def package(output, development=False, name="tuwunel", version=None):
             "release requires clean committed sources; use --development for local validation"
         )
     chart = ROOT / "charts" / name
+    overrides = {}
+    if architecture is not None:
+        import yaml
+        lock = image_lock(architecture)
+        images = {row["role"]: {key: row[key] for key in ("repository", "tag", "digest")}
+                  for row in lock["images"]}
+        values = yaml.safe_load((chart / "values.yaml").read_text())
+        if set(images) != set(values["images"]):
+            raise ValueError("Chart and platform role sets differ")
+        values["images"] = images
+        overrides["values.yaml"] = yaml.safe_dump(values, sort_keys=False).encode()
+        meta = yaml.safe_load((chart / "Chart.yaml").read_text())
+        meta["appVersion"] = "tuwunel " + images["homeserver"]["tag"] + " / element-web " + images["element"]["tag"]
+        overrides["Chart.yaml"] = yaml.safe_dump(meta, sort_keys=False).encode()
     provenance = {
         "repository": "TheApeironLab/tuwunel",
         "commit": revision,
@@ -82,7 +105,8 @@ def package(output, development=False, name="tuwunel", version=None):
                     or source.suffix == ".pyc"
                 ):
                     continue
-                data = source.read_bytes()
+                relative = source.relative_to(chart).as_posix()
+                data = overrides[relative] if relative in overrides else source.read_bytes()
                 if source == chart / "Chart.yaml":
                     data = re.sub(rb"(?m)^version: [^\n]+$", b"version: " + version.encode(), data)
                 if source == chart / "README.md":

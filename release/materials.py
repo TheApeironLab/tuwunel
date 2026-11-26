@@ -105,7 +105,7 @@ def json_member(archive, table, name):
     return json.loads(archive.extractfile(m).read(), object_pairs_hook=pairs)
 
 
-def inspect_oci(path, expected=None, details=False):
+def inspect_oci(path, expected=None, details=False, architecture="amd64"):
     """Check every referenced blob, architecture, graph closure and ordered diffIDs."""
     with open_archive(path) as tar:
         table = members(tar)
@@ -138,8 +138,8 @@ def inspect_oci(path, expected=None, details=False):
         if manifest.get('schemaVersion') != 2 or 'config' not in manifest:
             raise ValueError('single image manifest required, not an index')
         config = json_member(tar, table, blob(manifest['config']))
-        if (config.get('os'), config.get('architecture')) != ('linux', 'amd64'):
-            raise ValueError('only linux/amd64 materials are supported')
+        if architecture not in ('amd64', 'arm64') or (config.get('os'), config.get('architecture')) != ('linux', architecture):
+            raise ValueError(f'expected a linux/{architecture} image')
         diffs = config['rootfs']['diff_ids']
         if len(diffs) != len(manifest['layers']):
             raise ValueError('layer/diffID count mismatch')
@@ -215,7 +215,7 @@ def verify_legacy_tree(root):
     root = Path(root)
     verify_baseline(root)
     manifest = json.loads((root / 'install-manifest.json').read_text())
-    if manifest.get('schema') != LEGACY_SCHEMA or manifest.get('architecture') != 'amd64':
+    if manifest.get('schema') != LEGACY_SCHEMA or manifest.get('architecture') not in ('amd64', 'arm64'):
         raise ValueError('unsupported legacy package schema/architecture')
     declared = manifest.get('files')
     sizes = {}
@@ -255,7 +255,7 @@ def verify_legacy_tree(root):
         path = root / relative(image['file'])
         if image['file'] not in expected or path.stat().st_size != image['bytes'] or sha(path) != image['sha256']:
             raise ValueError('legacy image archive declaration differs')
-        identity = inspect_oci(path, image['digest'], details=True)
+        identity = inspect_oci(path, image['digest'], details=True, architecture=manifest['architecture'])
         for key in ('configDigest', 'layerDigests', 'diffIDs'):
             if key in image and image[key] != identity[key]:
                 raise ValueError('legacy image content declaration differs')

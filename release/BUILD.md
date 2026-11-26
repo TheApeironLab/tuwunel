@@ -15,14 +15,14 @@ Inputs:
 
 - VERSION defaults to charts/tuwunel/Chart.yaml. A supplied SemVer sets the packaged
   Chart version for chart/package; images uses it as native package metadata and
-  a local image tag. appVersion and distribution image tags/digests remain unchanged.
+  a local amd64 image tag. The Chart packager derives appVersion and the five image references from the selected platform lock.
 - CHANNEL=development by default; CHANNEL=release requires clean committed sources.
   Neither channel is installation or production acceptance.
-- ARCH=amd64 only. Other architectures/channels fail before any image work.
+- ARCH selects amd64 (default) or arm64 for Chart, materials and full-package output. The amd64 homeserver uses the native Bake target. For ARM64, fetch the maintenance branch so its locked commit is available, then run `make images ARCH=arm64 OUTPUT=<new-image-directory>`; Buildx compiles an archive of that commit with Cargo’s locked release profile. The binary version is checked in the final image.
 - OUTPUT is a new directory outside the checkout (no symlink ancestors). Existing
   paths are refused; failed partials remain for inspection, not automatic retry.
 - MATERIALS contains the external `images/` OCI archives. Without image-manifest.json
-  their bytes must match release/images-amd64.json. With that manifest, the same
+  their bytes must match the selected release/images-<arch>.json. With that manifest, the same
   pinned role/repository/tag/digest is required, with its actual archive byte SHA
   and size. No arbitrary upstream update is accepted.
 - FULL_PACKAGE and BASE_PACKAGE are explicit full archives for package-slim.
@@ -40,7 +40,7 @@ make package-slim FULL_PACKAGE=/absolute/full.tar.gz BASE_PACKAGE=/absolute/prio
 make verify PACKAGE=/absolute/slim.tar.gz BASE_PACKAGE=/absolute/prior-full.tar.gz OUTPUT=/absolute/restored
 ```
 
-`images` builds **this checkout's homeserver** through the original docker/bake.sh
+On amd64, `images` builds **this checkout's homeserver** through the original docker/bake.sh
 and native `oci` target. It selects one release/stable/default-feature Debian
 GNU x86_64-v1 matrix, linux/amd64, gzip OCI output into the exclusive OUTPUT.
 The existing Buildx builder `owo` must be prepared as documented in docker/README.md.
@@ -56,7 +56,7 @@ reused. This does not update the reviewed distribution image lock automatically.
 upstream digests in images-amd64.json with --preserve-digests, checking the OCI graph
 and uncompressed layers. It does not build repository source. `package` consumes
 these reviewed distribution materials; a newly built homeserver must go through an
-explicit review/update of images-amd64.json and Chart values before inclusion.
+explicit review/update of the platform lock and Chart values before inclusion.
 Existing native Bake targets and release interfaces remain unchanged unless the
 new explicit local-export mode is selected.
 
@@ -90,3 +90,10 @@ set, the old manifest's file sizes/hashes where declared, its image declarations
 and full OCI content graph. It never imports or executes archived scripts. Unknown
 legacy schemas fail explicitly. The same checks apply when using a legacy full
 archive as BASE_PACKAGE for slim creation or restoration.
+
+
+## Chat 0.4.0 on ARM64
+
+The ARM64 distribution uses the 1.9.3-apeiron.1 maintenance build and Element Web v1.12.30. The homeserver revision and OCI archive are recorded in `images-arm64.json`. Auxiliary images retain their upstream version numbers and use Chat-specific registry paths so an import can coexist with existing site tags. The native amd64 lane retains its existing homeserver and dependencies; the Chart packager writes the selected platform's actual image references and appVersion.
+
+For the published ARM64 release, use `make materials ARCH=arm64 OUTPUT=<new-material-directory>` and `make package ARCH=arm64 CHANNEL=release MATERIALS=<material-directory> OUTPUT=<new-package-directory>`. Verify the archive with `make verify PACKAGE=<archive>`. Its vasi.package.v1 index declares the Chart, five OCI archives, the Linux ARM64 Chat CLI 0.1.0 and ancillary files for direct Vasi import. Generate site-specific deploy values with prepare-values.py for a new installation. Upgrades should retain the existing release name, Matrix server name, OIDC identity, persistence and public origin.
