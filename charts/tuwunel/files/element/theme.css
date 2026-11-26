@@ -282,3 +282,17 @@ apeiron-chat-login[data-ready] .mx_AuthBody_language .mx_Dropdown_input {
     .mx_CreateRoomDialog .mx_Dialog_content > form > div:has(> div input[role="switch"]:disabled):not(:has(form)),
     #mx_tabpanel_ROOM_SECURITY_TAB fieldset.mx_SettingsFieldset:first-of-type:has(input[role="switch"]:disabled)
 ) { display: none !important; }
+
+.ap-download-status:not([hidden]) {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-block-start: 0.25rem;
+    color: var(--apeiron-muted);
+    font-size: 0.875rem;
+    font-variant-numeric: tabular-nums;
+}
+.ap-download-status progress {
+    width: min(7rem, 25%);
+    accent-color: var(--apeiron-primary);
+}

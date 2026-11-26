@@ -177,7 +177,7 @@ class Deployment(unittest.TestCase):
         self.assertRegex(element_config["modules"][0], r"^/apeiron-chat/theme\.js\?v=[a-f0-9]{12}$")
         required_assets = {
             "theme.js", "theme.css", "navigation.js", "components.css", "wordmark-light.svg",
-            "beams.css", "login.css",
+            "beams.css", "login.css", "download.js",
         }
         self.assertTrue(required_assets.issubset(assets))
         self.assertLess(sum(len(content.encode()) for content in assets.values()), 1024**2)
