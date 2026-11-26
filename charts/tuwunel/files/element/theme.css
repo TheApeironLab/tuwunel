@@ -166,7 +166,22 @@ apeiron-chat-login[data-ready] .mx_AuthBody :is(.mx_Login_submit, .mx_SSOButton)
 body.cpd-theme-light .ap-brand { content: url("./wordmark-light.svg"); }
 
 body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace:not(.ap-directory)
-    :is(.mx_SpacePanel, [data-panel]:has(.mx_LeftPanel_outerWrapper), .mx_Separator) { display: none !important; }
+    :is([data-panel]:has(.mx_LeftPanel_outerWrapper), .mx_Separator) { display: none !important; }
+/* Popup triggers remain measurable while the native room directory is hidden. */
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace:not(.ap-directory) .mx_SpacePanel {
+    position: fixed; visibility: hidden; pointer-events: none; width: 0; height: 0; overflow: hidden;
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace:not(.ap-directory)
+    :is(.mx_UserMenu button, .mx_QuickSettingsButton) {
+    position: fixed; top: var(--ap-menu-y, 0); left: var(--ap-menu-x, 0);
+    width: var(--ap-menu-w, 32px); height: var(--ap-menu-h, 32px);
+}
+.ap-workspace.ap-directory .ap-nav { display: none; }
+.ap-directory-tools {
+    order: -1; display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between;
+    gap: 4px; padding: 8px; border-bottom: 1px solid var(--apeiron-border);
+}
+.ap-workspace.ap-directory .mx_LeftPanel_wrapper { min-height: 0; }
 body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace [data-panel]:has(.mx_RoomView_wrapper) { flex: 1 1 0 !important; }
 body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace {
     background: var(--apeiron-background); -webkit-font-smoothing: antialiased;
@@ -203,7 +218,7 @@ body:is(.cpd-theme-light-hc, .cpd-theme-dark-hc) .ap-nav { display: none; }
 
 /* Put the native language switcher in the page header, as in Limani. */
 apeiron-chat-login[data-ready] .mx_AuthPage .mx_AuthHeader {
-    position: fixed; top: 92px; right: clamp(32px, 8vw, 160px); z-index: 4;
+    position: fixed; top: 100px; right: 72px; z-index: 4;
 }
 apeiron-chat-login[data-ready] .mx_AuthBody_language { color: #e8eef5; }
 apeiron-chat-login[data-ready] .mx_AuthBody_language .mx_Dropdown_menu {
@@ -219,6 +234,35 @@ apeiron-chat-login[data-ready] .mx_AuthBody .mx_Field:has(input[placeholder]:not
     position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%);
 }
 apeiron-chat-login[data-ready] .mx_AuthBody .mx_Field input::placeholder { color: #858a94; opacity: 1; }
-@media (max-width: 1023px) {
-    apeiron-chat-login[data-ready] .mx_AuthPage .mx_AuthHeader { top: 24px; right: 24px; }
+@media (min-width: 1280px) {
+    apeiron-chat-login[data-ready] .mx_AuthPage .mx_AuthHeader { right: 160px; }
 }
+@media (max-width: 1023px) {
+    apeiron-chat-login[data-ready] .mx_AuthPage .mx_AuthHeader { top: 32px; right: 24px; }
+}
+
+apeiron-chat-login[data-ready] .mx_AuthBody form:has(input[autocomplete="current-password"]) {
+    display: grid; gap: 20px;
+}
+apeiron-chat-login[data-ready] .mx_AuthBody form :is(.mx_Field, .mx_Login_submit) { margin: 0; }
+apeiron-chat-login[data-ready] .mx_AuthBody .mx_Field:has(input) { border: 0; }
+apeiron-chat-login[data-ready] .mx_AuthBody .mx_Field.mx_Field_invalid input { border-color: #e82825; }
+apeiron-chat-login[data-ready] .mx_AuthBody:has(input[name=username]) .mx_SSOButtons { margin-top: 20px; }
+apeiron-chat-login[data-ready] .mx_SSOButton[data-kind=secondary] { background: #222834; color: #bdc5d1; }
+apeiron-chat-login[data-ready] .mx_AuthBody .mx_Field input {
+    height: 48px; box-sizing: border-box; border-color: #222834;
+}
+apeiron-chat-login[data-ready] .mx_AuthBody .mx_Field input[autocomplete="current-password"] { padding-right: 44px; }
+apeiron-chat-login[data-ready] .ap-password-toggle {
+    position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    display: grid; place-items: center; width: 36px; height: 36px;
+    border: 0; background: transparent; color: #858a94; cursor: pointer;
+}
+.ap-password-toggle svg, .ap-language-icon { width: 17px; height: 17px; }
+.ap-password-toggle:focus-visible { outline: 2px solid #7eb6ee; border-radius: 4px; }
+apeiron-chat-login[data-ready] .mx_AuthBody_language .mx_Dropdown_input {
+    box-sizing: border-box; width: 116px; height: 32px; padding: 0 25px 0 30px;
+    border: 1px solid #222834; border-radius: 6px; background: #191b22; color: #bdc5d1;
+    font: 13px/1.4 system-ui, sans-serif;
+}
+.ap-language-icon { position: absolute; left: 8px; color: #858a94; pointer-events: none; }

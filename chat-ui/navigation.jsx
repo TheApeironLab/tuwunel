@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { Sidebar, Button } from '@apeiron/ui';
-import { Hash, LogOut, MessagesSquare, Search, Settings, UserRound } from 'lucide-react';
+import { ArrowLeft, Hash, LogOut, MessagesSquare, Search, Settings, UserRound } from 'lucide-react';
 
 export { createElement } from 'react';
 export { mountLogin } from './login';
@@ -87,20 +88,22 @@ function ChatNavigation({ api, workspace }) {
         ...(rooms.length ? [{ type: 'group', key: 'rooms', label: text('最近会话', 'Recent conversations'),
             children: rooms.map(room => ({ key: room.id, label: room.label, icon: <Hash /> })) }] : []),
     ];
-    function openNative(selector, revealDirectory = true) {
-        const activate = () => {
-            if (!workspace.isConnected) return;
-            if (revealDirectory) showDirectory(true);
-            requestAnimationFrame(() => {
-                const control = workspace.querySelector(selector);
-                if (!control) return;
-                if (control.getAttribute('aria-haspopup') === 'menu') {
-                    control.focus();
-                    control.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-                } else control.click();
-            });
-        };
-        afterDrawerCloses(activate);
+    function openNative(selector, trigger) {
+        // Read before the mobile drawer unmounts its button.
+        const rect = trigger?.getBoundingClientRect();
+        afterDrawerCloses(() => {
+            const control = workspace.querySelector(selector);
+            if (!control || !workspace.isConnected) return;
+            if (rect) {
+                workspace.style.setProperty('--ap-menu-x', rect.left + 'px');
+                workspace.style.setProperty('--ap-menu-y', rect.top + 'px');
+                workspace.style.setProperty('--ap-menu-w', rect.width + 'px');
+                workspace.style.setProperty('--ap-menu-h', rect.height + 'px');
+            }
+            if (control.getAttribute('aria-haspopup') === 'menu') {
+                control.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+            } else control.click();
+        });
     }
     function openSignOut() {
         afterDrawerCloses(() => {
@@ -127,32 +130,45 @@ function ChatNavigation({ api, workspace }) {
             window.mxDispatcher.dispatch({ action: 'view_user_settings', initialTabId: 'USER_ACCOUNT_TAB' });
         });
     }
-    return <Sidebar aria-label={text('会话导航', 'Chat navigation')}
-        collapsed={collapsed} onCollapsedChange={setCollapsed}
-        logo={<img alt="Apeiron" className="ap-brand" src="/apeiron-chat/wordmark.svg" />}
-        title={collapsed ? undefined : 'Chat'} items={items}
-        selectedKeys={directory ? ['directory'] : selected ? [selected.id] : []}
-        onClick={({ key }) => {
-            if (key === 'directory') { showDirectory(!directory); return; }
-            if (key === 'search') { openNative('#room-list-search-button', false); return; }
-            showDirectory(false);
-            api.navigation.openRoom(key);
-        }}
-        footer={<div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between gap-1">
-                <Button variant="ghost" icon={<UserRound />} iconOnly={collapsed}
-                    aria-label={text('账户', 'Account')} onClick={() => openNative('.mx_UserMenu button')}>
-                    {collapsed ? undefined : text('账户', 'Account')}
+    const signOutLabel = text('退出登录', 'Sign out');
+    const directoryPanel = directory && workspace.querySelector('.mx_LeftPanel_outerWrapper');
+    return <>
+        {directoryPanel && createPortal(
+            <div className="ap-directory-tools ap-scope">
+                <Button variant="ghost" icon={<ArrowLeft />} onClick={() => {
+                    showDirectory(false);
+                    requestAnimationFrame(() => workspace.querySelector('.ap-nav button')?.focus());
+                }}>{text('返回会话导航', 'Back to chat navigation')}</Button>
+                <Button variant="ghost" iconOnly icon={<LogOut />} aria-label={signOutLabel}
+                    title={signOutLabel} onClick={openSignOut} />
+            </div>, directoryPanel)}
+        <Sidebar aria-label={text('会话导航', 'Chat navigation')}
+            collapsed={collapsed} onCollapsedChange={setCollapsed}
+            logo={<img alt="Apeiron" className="ap-brand" src="/apeiron-chat/wordmark.svg" />}
+            title={collapsed ? undefined : 'Chat'} items={items}
+            selectedKeys={directory ? ['directory'] : selected ? [selected.id] : []}
+            onClick={({ key }) => {
+                if (key === 'directory') { afterDrawerCloses(() => showDirectory(true)); return; }
+                if (key === 'search') { openNative('#room-list-search-button'); return; }
+                showDirectory(false);
+                api.navigation.openRoom(key);
+            }}
+            footer={<div className="flex flex-col gap-1">
+                <div className={collapsed ? 'flex flex-col items-center gap-1' : 'flex items-center justify-between gap-1'}>
+                    <Button variant="ghost" icon={<UserRound />} iconOnly={collapsed}
+                        aria-label={text('账户', 'Account')} onClick={event => openNative('.mx_UserMenu button', event.currentTarget)}>
+                        {collapsed ? undefined : text('账户', 'Account')}
+                    </Button>
+                    <Button variant="ghost" iconOnly icon={<Settings />}
+                        aria-label={text('快速设置', 'Quick settings')} onClick={event => openNative('.mx_QuickSettingsButton', event.currentTarget)} />
+                </div>
+                <Button variant="ghost" icon={<LogOut />} iconOnly={collapsed}
+                    aria-label={signOutLabel} onClick={openSignOut}>
+                    {collapsed ? undefined : signOutLabel}
                 </Button>
-                {!collapsed && <Button variant="ghost" iconOnly icon={<Settings />}
-                    aria-label={text('快速设置', 'Quick settings')} onClick={() => openNative('.mx_QuickSettingsButton')} />}
-            </div>
-            <Button variant="ghost" icon={<LogOut />} iconOnly={collapsed}
-                aria-label={text('退出登录', 'Sign out')} onClick={openSignOut}>
-                {collapsed ? undefined : text('退出登录', 'Sign out')}
-            </Button>
-        </div>}
-    />;
+            </div>}
+        />
+    </>;
 }
 
 export function mountNavigation(node, api, workspace) {
