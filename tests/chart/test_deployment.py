@@ -133,6 +133,13 @@ class Deployment(unittest.TestCase):
             {"path": "/config.json", "port": 8080},
         )
         self.assertFalse(any(d["kind"] == "CronJob" for d in resources))
+        launch_path = "vasi.apeironlab.cn/launch-path"
+        self.assertEqual(
+            {d["metadata"]["name"]: d["metadata"]["annotations"][launch_path]
+             for d in resources if d["kind"] == "Ingress"
+             and launch_path in d["metadata"].get("annotations", {})},
+            {"matrix-element": "/"},
+        )
         tls = {
             d["spec"]["tls"][0]["secretName"]
             for d in resources

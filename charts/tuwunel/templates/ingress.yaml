@@ -42,6 +42,7 @@ metadata:
   name: matrix-element
   namespace: {{ .Release.Namespace }}
   annotations:
+    vasi.apeironlab.cn/launch-path: "/"
     cert-manager.io/cluster-issuer: {{ .Values.certificateIssuer }}
     traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-matrix-element-headers@kubernetescrd
 spec:
