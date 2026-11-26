@@ -59,6 +59,12 @@ pub async fn create_device(
 	client_ip: Option<IpAddr>,
 ) -> Result<OwnedDeviceId> {
 	let device_id = resolve_device_id(device_id);
+	if device_id
+		.as_str()
+		.starts_with(AGENT_DEVICE_PREFIX)
+	{
+		return Err!(Request(Forbidden("Reserved Chat agent device")));
+	}
 
 	if !self.exists(user_id).await {
 		return Err!(Request(InvalidParam(error!(
@@ -87,6 +93,77 @@ pub async fn create_device(
 	}
 
 	Ok(device_id)
+}
+
+pub const AGENT_DEVICE_PREFIX: &str = "APEIRON_AGENT_";
+
+/// Keep one native, access-only Matrix device per user/broker. A repeated
+/// projection reads the same token. An older exchange cannot roll it back.
+#[implement(super::Service)]
+pub async fn agent_access_token(
+	&self,
+	user: &UserId,
+	device: &DeviceId,
+	expiry: u64,
+) -> Result<String> {
+	if !device.as_str().starts_with(AGENT_DEVICE_PREFIX) || !self.exists(user).await {
+		return Err!(Request(Forbidden("Invalid Chat agent device")));
+	}
+	self.check_device_id(user, Some(device)).await?;
+	let _lock = self.lock_device(user, device).await;
+	if expiry <= duration_since_epoch(SystemTime::now()).as_secs() {
+		return Err!(Request(Forbidden("Chat agent grant expired")));
+	}
+	let key = (user, device);
+	let previous = match self
+		.db
+		.userdeviceid_token
+		.qry(&key)
+		.await
+		.deserialized::<String>()
+	{
+		| Ok(token) => Some(token),
+		| Err(error) if error.is_not_found() => None,
+		| Err(error) => return Err(error),
+	};
+	if let Some(current) = &previous {
+		if !current.starts_with("mat_agent_") {
+			return Err!(Request(Forbidden("Device is already in use")));
+		}
+		let (owner, device_id, until) = self.find_from_token(current).await?;
+		if owner != user || device_id != device {
+			return Err!(Request(Forbidden("Invalid Chat agent device binding")));
+		}
+		let until = until
+			.map(duration_since_epoch)
+			.map(|d| d.as_secs());
+		if until == Some(expiry) {
+			return Ok(current.clone());
+		}
+		if until.is_some_and(|t| t > expiry) {
+			return Err!(Request(Forbidden("Superseded Chat grant")));
+		}
+	}
+	if !self.device_exists(user, device).await {
+		self.put_device_metadata(user, true, &Device {
+			device_id: device.to_owned(),
+			display_name: Some("Apeiron Chat agent".into()),
+			last_seen_ts: Some(MilliSecondsSinceUnixEpoch::now()),
+			last_seen_ip: None,
+		})
+		.await;
+	}
+	let token = format!("mat_agent_{}", random_string(TOKEN_LENGTH));
+	let mut txn = self.services.db.txn();
+	if let Some(old) = previous {
+		txn.del_raw(&self.db.token_userdeviceid, &old);
+		txn.del(&self.db.userdeviceidtoken_index, (user, device, &old));
+	}
+	txn.raw_put(&self.db.token_userdeviceid, &token, (user, device, Some(expiry)));
+	txn.put_raw(&self.db.userdeviceidtoken_index, (user, device, &token), []);
+	txn.put_raw(&self.db.userdeviceid_token, key, &token);
+	txn.execute();
+	Ok(token)
 }
 
 fn resolve_device_id(device_id: Option<&DeviceId>) -> OwnedDeviceId {

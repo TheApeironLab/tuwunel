@@ -1,0 +1,14 @@
+{
+  "schema": "apeiron-app/v1",
+  "version": "1",
+  "agent": {
+    "prompt": "通过 apeiron chat 使用当前成员的 Matrix 身份。用 apeiron chat whoami 验证账号，使用 apeiron chat --help 查看消息、房间和附件命令。凭据由 Apeiron 自动续期。",
+    "cli": {
+      "bin": "apeiron",
+      "env": {
+        "api_url": "CHAT_SERVER",
+        "token_file": "CHAT_TOKEN_FILE"
+      }
+    }
+  }
+}

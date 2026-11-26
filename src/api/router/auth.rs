@@ -81,6 +81,18 @@ pub(super) async fn auth<A: AuthDispatch>(
 		| token => token,
 	};
 
+	if let Token::User((user, device, _)) = &token
+		&& device
+			.as_str()
+			.starts_with(tuwunel_service::users::device::AGENT_DEVICE_PREFIX)
+	{
+		if !agent_route(request.parts.method.as_str(), request.parts.uri.path()) {
+			return Err!(Request(Forbidden("Chat agent token is not valid for this endpoint")));
+		}
+		services.users.deactivated_check(user).await?;
+		services.users.locked_check(user).await?;
+	}
+
 	if A::SCHEME == Scheme::None {
 		check_auth_still_required(services, &token, route)?;
 	}
@@ -192,5 +204,37 @@ async fn find_token(services: &Services, token: Option<&str>) -> Result<Token> {
 		| Err(e) if !e.is_not_found() => Err(e),
 		| Ok((token, _)) => Ok(token),
 		| _ => Ok(Token::Invalid),
+	}
+}
+
+/// Matrix operations used by the Chat CLI. An agent device cannot mint
+/// other sessions, change account credentials, or administer the homeserver.
+fn agent_route(method: &str, path: &str) -> bool {
+	let parts: Vec<_> = path.trim_start_matches('/').split('/').collect();
+	matches!(
+		(method, parts.as_slice()),
+		(
+			"GET",
+			["_matrix", "client", "v3", "account", "whoami"]
+				| ["_matrix", "client", "v3", "joined_rooms" | "sync"]
+				| ["_matrix", "client", "v3", "rooms", _, "messages"]
+				| ["_matrix", "client", "v3", "rooms", _, "event", _]
+				| ["_matrix", "client", "v3", "rooms", _, "state", "m.room.encryption"]
+				| ["_matrix", "client", "v1", "media", "download", _, _]
+		) | ("PUT", ["_matrix", "client", "v3", "rooms", _, "send", "m.room.message", _])
+			| ("POST", ["_matrix", "media", "v3", "upload"])
+	)
+}
+
+#[cfg(test)]
+mod agent_tests {
+	use super::agent_route;
+	#[test]
+	fn scopes_the_agent_device() {
+		assert!(agent_route("GET", "/_matrix/client/v3/account/whoami"));
+		assert!(agent_route("PUT", "/_matrix/client/v3/rooms/r/send/m.room.message/t"));
+		assert!(!agent_route("POST", "/_matrix/client/v1/login/get_token"));
+		assert!(!agent_route("POST", "/_synapse/admin/v1/register"));
+		assert!(!agent_route("PUT", "/_matrix/client/v3/rooms/r/state/m.room.power_levels"));
 	}
 }

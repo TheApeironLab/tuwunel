@@ -25,6 +25,9 @@ use crate::ClientIp;
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct TokenRequest {
+	pub(super) subject_token: Option<String>,
+	pub(super) subject_token_type: Option<String>,
+	pub(super) requested_token_type: Option<String>,
 	grant_type: String,
 	code: Option<String>,
 	redirect_uri: Option<String>,
@@ -56,6 +59,11 @@ pub(crate) async fn token_route(
 		oauth_error(StatusCode::TOO_MANY_REQUESTS, "slow_down", "Too many token requests")
 	} else {
 		match body.grant_type.as_str() {
+			| "urn:ietf:params:oauth:grant-type:token-exchange" =>
+				super::agent::exchange(&services, &body)
+					.await
+					.unwrap_or_else(token_error_response),
+
 			| "authorization_code" => token_authorization_code(&services, &body)
 				.await
 				.unwrap_or_else(token_error_response),

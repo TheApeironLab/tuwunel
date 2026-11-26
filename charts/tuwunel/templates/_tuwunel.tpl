@@ -67,6 +67,10 @@ client = "{{ include "chat.homeserver" . }}"
 
 [[global.identity_provider]]
 brand = "Keycloak"
+{{- if .Values.auth.bearerClientIds }}
+agent_broker_clients = {{ .Values.auth.bearerClientIds | toJson }}
+agent_tenant = {{ required "auth.oidc.tenant is required for agent credentials" .Values.auth.oidc.tenant | quote }}
+{{- end }}
 # client_id 与 issuer_url 是 Tuwunel 绑定身份的键，(client_id, sub) 一旦写进数据库就永远不能改
 client_id = {{ include "chat.clientId" . | quote }}
 client_secret_file = "/etc/tuwunel/oidc/client-secret"

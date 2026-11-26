@@ -61,6 +61,7 @@ images:
     tag: 3.12-alpine
     digest: sha256:218ad6ba54faeb7f1089f391c597a80c9d69ca88e561f71ebd77fb452d39249b
 auth:
+  bearerClientIds: []
   mode: oidc
   oidc:
     issuer: ''

@@ -4058,6 +4058,14 @@
 #
 #client_secret_file =
 
+# Confidential Keycloak clients allowed to exchange a user grant for Chat agent access.
+#
+#agent_broker_clients = []
+
+# Tenant binding for agent grants from this provider.
+#
+#agent_tenant = ""
+
 # Issuer URL the provider publishes for you. We have pre-supplied default
 # values for some of the canonical public providers, making this field
 # optional based on the `brand` set above. Otherwise it is required to

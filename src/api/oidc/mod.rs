@@ -1,4 +1,5 @@
 pub(crate) mod account;
+mod agent;
 pub(crate) mod auth_issuer;
 pub(crate) mod auth_metadata;
 pub(crate) mod authorize;

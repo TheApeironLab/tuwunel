@@ -46,6 +46,21 @@ pub(crate) async fn send_message_event_route(
 	let sender_user = body.sender_user();
 	let sender_device = body.sender_device.as_deref();
 	let appservice_info = body.appservice_info.as_ref();
+	if sender_device.is_some_and(|device| {
+		device
+			.as_str()
+			.starts_with(tuwunel_service::users::device::AGENT_DEVICE_PREFIX)
+	}) {
+		let message: serde_json::Value = from_str(body.body.body.json().get())?;
+		if message["msgtype"] == "m.text"
+			&& let Some(text) = message["body"].as_str()
+		{
+			let (escaped, prefixed) = services.admin.command_prefix(text);
+			if escaped || (prefixed && services.admin.is_admin_room(&body.room_id).await) {
+				return Err!(Request(Forbidden("Chat agent cannot issue server commands")));
+			}
+		}
+	}
 
 	// Forbid m.room.encrypted if encryption is disabled
 	if body.event_type == MessageLikeEventType::RoomEncrypted && !services.config.allow_encryption
