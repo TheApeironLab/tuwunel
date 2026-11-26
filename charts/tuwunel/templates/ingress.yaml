@@ -42,7 +42,7 @@ metadata:
   name: matrix-element
   namespace: {{ .Release.Namespace }}
   annotations:
-    {{- pick (.Chart.Annotations | toJson | fromJson) "vasi.apeironlab.cn/display-name-zh" "vasi.apeironlab.cn/display-name-en" "vasi.apeironlab.cn/category" "vasi.apeironlab.cn/category-name-zh" "vasi.apeironlab.cn/category-name-en" | toYaml | nindent 4 }}
+    {{- pick (.Chart.Annotations | toJson | fromJson) "vasi.apeironlab.cn/icon" "vasi.apeironlab.cn/display-name-zh" "vasi.apeironlab.cn/display-name-en" "vasi.apeironlab.cn/category" "vasi.apeironlab.cn/category-name-zh" "vasi.apeironlab.cn/category-name-en" | toYaml | nindent 4 }}
     vasi.apeironlab.cn/launch-path: "/"
     cert-manager.io/cluster-issuer: {{ .Values.certificateIssuer }}
     traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-matrix-element-headers@kubernetescrd
