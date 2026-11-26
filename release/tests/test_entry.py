@@ -20,7 +20,7 @@ e = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(e)
 
 
-def tiny_oci(path, extra=False, wrong_diff=False):
+def tiny_oci(path, extra=False, wrong_diff=False, architecture="amd64"):
     data = {}
     def blob(raw, typ):
         digest = hashlib.sha256(raw).hexdigest()
@@ -28,7 +28,7 @@ def tiny_oci(path, extra=False, wrong_diff=False):
         return {'digest': 'sha256:' + digest, 'size': len(raw), 'mediaType': typ}
     layer = b'real bounded layer bytes'
     layer_desc = blob(gzip.compress(layer), 'application/vnd.oci.image.layer.v1.tar+gzip')
-    config = blob(json.dumps({'os': 'linux', 'architecture': 'amd64', 'rootfs': {'type': 'layers', 'diff_ids': ['sha256:' + ('0' * 64 if wrong_diff else hashlib.sha256(layer).hexdigest())]}}).encode(), 'application/vnd.oci.image.config.v1+json')
+    config = blob(json.dumps({'os': 'linux', 'architecture': architecture, 'rootfs': {'type': 'layers', 'diff_ids': ['sha256:' + ('0' * 64 if wrong_diff else hashlib.sha256(layer).hexdigest())]}}).encode(), 'application/vnd.oci.image.config.v1+json')
     manifest = blob(json.dumps({'schemaVersion': 2, 'config': config, 'layers': [layer_desc]}).encode(), 'application/vnd.oci.image.manifest.v1+json')
     data['oci-layout'] = b'{"imageLayoutVersion":"1.0.0"}'
     data['index.json'] = json.dumps({'schemaVersion': 2, 'manifests': [manifest]}).encode()
@@ -56,8 +56,16 @@ def candidate(parent, name, text):
 
 
 class EntryContract(unittest.TestCase):
+    def test_oci_architecture_is_checked_against_target(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "arm64.tar"
+            digest = tiny_oci(path, architecture="arm64")
+            self.assertEqual(m.inspect_oci(path, digest, architecture="arm64"), digest)
+            with self.assertRaises(ValueError):
+                m.inspect_oci(path, digest, architecture="amd64")
+
     def test_parameters_rejected_before_dispatch(self):
-        for env in ({'VERSION': '1; touch bad'}, {'ARCH': 'arm64'}, {'CHANNEL': 'prod'}):
+        for env in ({'VERSION': '1; touch bad'}, {'ARCH': 'unsupported'}, {'CHANNEL': 'prod'}):
             with self.subTest(env=env), patch.object(e, 'run') as run, self.assertRaises(ValueError):
                 e.main('images', env)
             run.assert_not_called()
@@ -92,7 +100,7 @@ class EntryContract(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertFalse(sentinel.exists())
             self.assertFalse((Path(d) / 'out').exists())
-            result = subprocess.run(['make', 'images', 'ARCH=arm64', 'OUTPUT=' + d + '/out'], cwd=e.ROOT, capture_output=True)
+            result = subprocess.run(['make', 'images', 'ARCH=unsupported', 'OUTPUT=' + d + '/out'], cwd=e.ROOT, capture_output=True)
             self.assertNotEqual(result.returncode, 0)
             self.assertFalse((Path(d) / 'out').exists())
 
@@ -106,6 +114,25 @@ class EntryContract(unittest.TestCase):
             self.assertEqual(chart['version'], '0.3.1-dev.contract')
             self.assertEqual(chart['appVersion'], yaml.safe_load(original)['appVersion'])
             self.assertEqual((e.ROOT / 'charts/tuwunel/Chart.yaml').read_bytes(), original)
+
+    def test_packaged_chart_uses_the_selected_architecture(self):
+        import yaml
+        with tempfile.TemporaryDirectory() as directory:
+            for architecture in ('amd64', 'arm64'):
+                with self.subTest(architecture=architecture):
+                    output = Path(directory) / architecture
+                    lock = e.chart_package.image_lock(architecture)
+                    images = {row['role']: {key: row[key] for key in ('repository', 'tag', 'digest')}
+                              for row in lock['images']}
+                    result = e.chart_package.package(output, development=True, architecture=architecture)
+                    with tarfile.open(output / result['chart']['file']) as archive:
+                        values = yaml.safe_load(archive.extractfile('tuwunel/values.yaml'))
+                        metadata = yaml.safe_load(archive.extractfile('tuwunel/Chart.yaml'))
+                    self.assertEqual(values['images'], images)
+                    self.assertIn(images['homeserver']['tag'], metadata['appVersion'])
+                    if architecture == 'arm64':
+                        defaults = yaml.safe_load((e.ROOT / 'charts/tuwunel/values.yaml').read_text())
+                        self.assertEqual(defaults['images'], images)
 
     def test_help_and_unsupported_target(self):
         e.main('help', {})

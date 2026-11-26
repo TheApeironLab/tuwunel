@@ -1,0 +1,30 @@
+FROM rust:1.95-bookworm@sha256:6258907abe69656e41cd992e0b705cdcfabcbbe3db374f92ed2d47121282d4a1 AS trust
+FROM trust AS builder
+RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get update && apt-get install -y --no-install-recommends \
+       clang libclang-dev cmake pkg-config libbz2-dev liblz4-dev libzstd-dev \
+       libssl-dev liburing-dev libcap-dev protobuf-compiler libsystemd-dev lld \
+    && rm -rf /var/lib/apt/lists/*
+ENV RUSTUP_TOOLCHAIN=1.95.0
+WORKDIR /src
+COPY . .
+RUN cargo build --release --locked -p tuwunel --bin tuwunel \
+    && mkdir -p /out/lib && cp target/release/tuwunel /out/tuwunel \
+    && cp -L /usr/lib/aarch64-linux-gnu/liburing.so.2 /usr/lib/aarch64-linux-gnu/libstdc++.so.6 /out/lib/
+
+FROM scratch AS compiled
+COPY --from=builder /out/ /
+FROM debian:bookworm-slim@sha256:e67eeead736ff7bbe258ef088bff683635c561b1fcfefad0806c1df4ab49ce0e
+ARG SERVER_VERSION
+ARG SERVER_REVISION
+LABEL org.opencontainers.image.source="https://github.com/TheApeironLab/tuwunel" \
+      org.opencontainers.image.version="${SERVER_VERSION}" \
+      org.opencontainers.image.revision="${SERVER_REVISION}"
+COPY --from=trust /etc/ssl/certs/ /etc/ssl/certs/
+COPY --from=trust /usr/share/ca-certificates/ /usr/share/ca-certificates/
+COPY --from=compiled /lib/liburing.so.2 /lib/libstdc++.so.6 /usr/local/lib/
+COPY --from=compiled /tuwunel /usr/local/bin/tuwunel
+RUN ldconfig && tuwunel --version | grep -F "${SERVER_VERSION}" \
+    && mkdir -p /var/lib/tuwunel && chown 10001:10001 /var/lib/tuwunel
+USER 10001:10001
+ENTRYPOINT ["/usr/local/bin/tuwunel"]

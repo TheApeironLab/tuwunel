@@ -1,9 +1,9 @@
 # Tuwunel / Element：独立 Vasi 应用部署
 
 本仓库是 Chart、镜像声明、初始化器、接线工具和验收检查的源码。
-当前 Chart 候选为 `0.3.0-dev.20261105.1`，保留单副本 `matrix-tuwunel`
+当前 Chart 候选为 `0.4.0`，保留单副本 `matrix-tuwunel`
 StatefulSet（含 backup sidecar）、独立 Element 和默认启用的告警 receiver。
-固定五个 AMD64 镜像见 `release/images-amd64.json`；OCI 归档在外部材料目录，不能提交进仓库。
+ARM64 发布包的五个镜像、流式服务端来源和 Chat CLI 见 `release/images-arm64.json`。既有 AMD64 镜像集见 `release/images-amd64.json`。发布工具按目标架构生成 Chart 和镜像绑定。
 
 来源见 `files/origin.json` 与 `files/adaptation-origin.json`；构建器另生成
 `files/provenance.json`，记录实际 Git 提交、开发标志和输入摘要。

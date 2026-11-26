@@ -1,0 +1,96 @@
+{
+  "architecture": "arm64",
+  "images": [
+    {
+      "role": "homeserver",
+      "file": "images/homeserver-arm64.oci.tar",
+      "repository": "apeiron/chat/tuwunel",
+      "tag": "v1.9.3-apeiron.1",
+      "sourceRevision": "fb4aeaf102af30016889bcab6c4c0b5e1260cf26",
+      "sourceArchive": "https://github.com/TheApeironLab/tuwunel/releases/download/chat-v0.4.0/homeserver-arm64.oci.tar",
+      "digest": "sha256:b496a5f492b7e8f8d50612bf146538e27a59bddb186bee778a619ca61ebfce90",
+      "platforms": [
+        {
+          "os": "linux",
+          "architecture": "arm64"
+        }
+      ],
+      "bytes": 69361152,
+      "sha256": "a0427459d423ebda542017ee44a33ac3ba36450b3a01e7e806ac82c0239770d2"
+    },
+    {
+      "role": "element",
+      "file": "images/element-arm64.oci.tar",
+      "repository": "apeiron/chat/element-web",
+      "sourceRepository": "vectorim/element-web",
+      "tag": "v1.12.30",
+      "digest": "sha256:48eb5ccdccd9890c83d827385d6a8c2a257624b0cf6959c429fdef56cf51c294",
+      "platforms": [
+        {
+          "os": "linux",
+          "architecture": "arm64"
+        }
+      ],
+      "bytes": 64591360,
+      "sha256": "eaa24c27b3e78b9a0d90e80098a927ba4e09e09f38b05f6125e93ca737504f3c"
+    },
+    {
+      "role": "backup",
+      "file": "images/backup-arm64.oci.tar",
+      "repository": "apeiron/chat/busybox",
+      "sourceRepository": "library/busybox",
+      "tag": "1.36",
+      "digest": "sha256:bd44eb136a95dcc8dc58995e43abc40a413f2e8e3d4a2aae6bccbe94686acb05",
+      "platforms": [
+        {
+          "os": "linux",
+          "architecture": "arm64"
+        }
+      ],
+      "bytes": 1903616,
+      "sha256": "92f8f909f4764d27cf69e57eb0adfc6c7660e8f1f2acf1e14e6d8517225cb2e0"
+    },
+    {
+      "role": "receiver",
+      "file": "images/receiver-arm64.oci.tar",
+      "repository": "apeiron/chat/alertmanager-receiver",
+      "sourceRepository": "metio/matrix-alertmanager-receiver",
+      "tag": "2026.9.23",
+      "digest": "sha256:0fea11b34ae060f9e63958bea19acdbdf03785f72fb07e5a49136d9189716781",
+      "platforms": [
+        {
+          "os": "linux",
+          "architecture": "arm64"
+        }
+      ],
+      "bytes": 19534336,
+      "sha256": "904e8aea2275464e37f70a522395fa49f8bc09689d23706750e9606717424ca2"
+    },
+    {
+      "role": "initializer",
+      "file": "images/initializer-arm64.oci.tar",
+      "repository": "apeiron/chat/python",
+      "sourceRepository": "library/python",
+      "tag": "3.12-alpine",
+      "digest": "sha256:218ad6ba54faeb7f1089f391c597a80c9d69ca88e561f71ebd77fb452d39249b",
+      "platforms": [
+        {
+          "os": "linux",
+          "architecture": "arm64"
+        }
+      ],
+      "bytes": 18543104,
+      "sha256": "b50be9d1b74dccc28039d406ce965563b118db5076483d9c178e2ec3ef9462e5"
+    }
+  ],
+  "cli": {
+    "format": "raw",
+    "name": "cli",
+    "version": "0.1.0",
+    "platform": "linux-arm64",
+    "file": "deliverables/cli/chat-0.1.0-linux-arm64.tar.gz",
+    "size": 2343359,
+    "sha256": "05f999e1f51c41fbdef11f26264249b446d54ea40f5573287996c5b356c81e1a",
+    "sourceArchive": "https://github.com/TheApeironLab/tuwunel/releases/download/chat-v0.4.0/chat-0.1.0-linux-arm64.tar.gz"
+  }
+}

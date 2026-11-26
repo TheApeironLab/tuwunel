@@ -41,25 +41,25 @@ vasi:
   enabled: false
 images:
   homeserver:
-    repository: matrix-construct/tuwunel
-    tag: v1.9.3
-    digest: sha256:cbc581c5d75025af259576b2d15ca8c5ba4796c5e1474e4836206d3b42d6dda9
+    repository: apeiron/chat/tuwunel
+    tag: v1.9.3-apeiron.1
+    digest: sha256:b496a5f492b7e8f8d50612bf146538e27a59bddb186bee778a619ca61ebfce90
   element:
-    repository: vectorim/element-web
+    repository: apeiron/chat/element-web
     tag: v1.12.30
-    digest: sha256:9189d2871ecc9ba8a79a1a94c29c4696648fbaa7a6979092919d9b18d0f1ae09
+    digest: sha256:48eb5ccdccd9890c83d827385d6a8c2a257624b0cf6959c429fdef56cf51c294
   backup:
-    repository: library/busybox
+    repository: apeiron/chat/busybox
     tag: '1.36'
-    digest: sha256:b7f3d86d6e84fc17718c48bcde1450807faa2d56704205c697b4bd5df7b9e29f
+    digest: sha256:bd44eb136a95dcc8dc58995e43abc40a413f2e8e3d4a2aae6bccbe94686acb05
   receiver:
-    repository: metio/matrix-alertmanager-receiver
+    repository: apeiron/chat/alertmanager-receiver
     tag: 2026.9.23
-    digest: sha256:e9ab88b729762f3c294152ef8440a5d2915fa1dd6af53a2483d1c0a083079a55
+    digest: sha256:0fea11b34ae060f9e63958bea19acdbdf03785f72fb07e5a49136d9189716781
   initializer:
-    repository: library/python
+    repository: apeiron/chat/python
     tag: 3.12-alpine
-    digest: sha256:69ebe56e2a764c399514a0a6117131cb730cc4d0e71e85c08deb9af74cbb9f41
+    digest: sha256:218ad6ba54faeb7f1089f391c597a80c9d69ca88e561f71ebd77fb452d39249b
 auth:
   mode: oidc
   oidc:

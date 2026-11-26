@@ -25,7 +25,7 @@ class InstallCallerCompatibility(unittest.TestCase):
             (inputs / 'images').mkdir(parents=True)
             image = inputs / 'images/test.oci.tar'
             digest = tiny_oci(image)
-            row = {'role': 'test', 'file': 'images/test.oci.tar', 'digest': digest,
+            row = {'role': 'test', 'repository': 'test/image', 'tag': 'test', 'file': 'images/test.oci.tar', 'digest': digest,
                    'sha256': m.sha(image), 'bytes': image.stat().st_size}
             # Only the large approved-image input boundary is replaced. The actual
             # old wrapper, native Chart packager, assembly and archive verification run.
@@ -38,6 +38,12 @@ class InstallCallerCompatibility(unittest.TestCase):
             self.assertEqual(result['clusterInstallation'], 'not-run')
             self.assertTrue((root / 'out/chart-build/tuwunel-chart-release.json').is_file())
             manifest = m.verify_legacy_tree(root / 'out/material')
+            import json
+            index = json.loads((root / 'out/material/vasi-package.json').read_text())
+            self.assertEqual([item['format'] for item in index['items']], ['chart', 'image'])
+            self.assertEqual({item['file'] for item in index['items'] + index['files']},
+                             set(m.inventory(root / 'out/material')) -
+                             {'vasi-package.json', 'SHA256SUMS', 'install-manifest.json'})
             self.assertEqual(manifest['schema'], 'tuwunel.install-materials.v1')
             self.assertEqual(manifest['acceptance']['clusterInstallation'], 'not-run')
             with tarfile.open(archive) as tar:

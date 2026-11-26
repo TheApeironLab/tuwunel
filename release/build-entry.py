@@ -9,6 +9,8 @@ import re
 import shutil
 import subprocess
 import sys
+import tarfile
+import tempfile
 
 import materials as m
 import package as chart_package
@@ -30,8 +32,8 @@ def options(env):
         raise ValueError('VERSION must be SemVer')
     if env.get('CHANNEL', 'development') not in ('development', 'release'):
         raise ValueError('CHANNEL must be development or release')
-    if env.get('ARCH', 'amd64') != 'amd64':
-        raise ValueError('only ARCH=amd64 is supported')
+    if env.get('ARCH', 'amd64') not in ('amd64', 'arm64'):
+        raise ValueError('ARCH must be amd64 or arm64')
     return version, env.get('CHANNEL', 'development')
 
 
@@ -50,20 +52,22 @@ def output(env):
     return path
 
 
-def records(inputs):
-    lock = json.loads((HERE / 'images-amd64.json').read_text())
+def records(inputs, architecture="amd64"):
+    lock = chart_package.image_lock(architecture)
     supplied = inputs / 'image-manifest.json'
     rows = json.loads(supplied.read_text())['images'] if supplied.is_file() else lock['images']
     import yaml
     values = yaml.safe_load((ROOT / 'charts/tuwunel/values.yaml').read_text())['images']
     by_role = {r['role']: r for r in lock['images']}
-    if set(values) != set(by_role) or any(values[role][k] != row[k] for role, row in by_role.items() for k in ('repository', 'tag', 'digest')):
+    if any(row['platforms'] != [{'os': 'linux', 'architecture': architecture}] for row in by_role.values()):
+        raise ValueError('locked image platform differs')
+    if set(values) != set(by_role):
         raise ValueError('Chart and image lock differ')
     if len(rows) != len(by_role) or {r['role'] for r in rows} != set(by_role):
         raise ValueError('image role set differs')
     for row in rows:
         wanted = by_role[row['role']]
-        if any(row[k] != wanted[k] for k in ('file', 'repository', 'tag', 'digest')):
+        if any(row[k] != wanted[k] for k in ('file', 'repository', 'tag', 'digest', 'platforms')):
             raise ValueError('pinned image identity differs')
         try:
             path = m.regular(inputs / m.relative(row['file']))
@@ -71,7 +75,7 @@ def records(inputs):
             raise ValueError('unsafe image input') from exc
         if path.stat().st_size != row['bytes'] or m.sha(path) != row['sha256']:
             raise ValueError('image archive bytes differ')
-        identity = m.inspect_oci(path, row['digest'], details=True)
+        identity = m.inspect_oci(path, row['digest'], details=True, architecture=architecture)
         for key in ('configDigest', 'layerDigests', 'diffIDs'):
             if key in row and row[key] != identity[key]:
                 raise ValueError('image content identity differs')
@@ -79,12 +83,12 @@ def records(inputs):
     return rows
 
 
-def assemble(inputs, out, version, channel):
-    rows = records(inputs)
+def assemble(inputs, out, version, channel, architecture='amd64'):
+    rows = records(inputs, architecture)
     run(['helm', 'lint', 'charts/tuwunel', '--values', 'charts/tuwunel/values-vasi.example.yaml'])
     # Native chart publisher retains source manifest/clean-release policy.
     out.mkdir(parents=True)
-    receipt = chart_package.package(out / 'chart-build', channel == 'development', version=version)
+    receipt = chart_package.package(out / 'chart-build', channel == 'development', version=version, architecture=architecture)
     stage = out / 'material'
     (stage / 'charts').mkdir(parents=True)
     shutil.copyfile(out / 'chart-build' / receipt['chart']['file'], stage / 'charts' / receipt['chart']['file'])
@@ -92,6 +96,14 @@ def assemble(inputs, out, version, channel):
         dest = stage / row['file']
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(inputs / row['file'], dest)
+    cli = chart_package.image_lock(architecture).get('cli')
+    if cli:
+        source = m.regular(inputs / m.relative(cli['file']))
+        if source.stat().st_size != cli['size'] or m.sha(source) != cli['sha256']:
+            raise ValueError('CLI archive differs from platform lock')
+        dest = stage / cli['file']
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, dest)
     for source, target in (
         ('release/prepare-values.py', 'prepare-values.py'),
         ('release/verify-install.py', 'verify-install.py'),
@@ -108,26 +120,41 @@ def assemble(inputs, out, version, channel):
         dest.chmod(0o755 if target.endswith('.sh') else 0o644)
     readme = (stage / 'README.md').read_text()
     readme = re.sub(r'当前 Chart 候选为 `[^`]+`', '当前 Chart 候选为 `' + version + '`', readme, count=1)
-    for old, new in (('release/images-amd64.json', 'image-manifest.json'),
+    for old, new in (('release/images-' + architecture + '.json', 'image-manifest.json'),
                      ('release/prepare-values.py', 'prepare-values.py'),
                      ('release/site-public.example.json', 'site-public.example.json')):
         readme = readme.replace(old, new)
     (stage / 'README.md').write_text('> 本归档版本以 package.json 为准，镜像身份以 image-manifest.json 为准。安装未运行。\n'
         '> 构建/完整与精简包校验见 BUILD.md；下文历史验收不代表本归档通过。\n\n' + readme)
-    m.write_json(stage / 'image-manifest.json', {'architecture': 'amd64', 'images': rows})
+    m.write_json(stage / 'image-manifest.json', {'architecture': architecture, 'images': rows})
     m.write_json(stage / 'package.json', {'application': 'tuwunel', 'version': version, 'channel': channel,
-        'architecture': 'amd64', 'source': receipt['source'], 'installation': 'not-run'})
+        'architecture': architecture, 'source': receipt['source'], 'installation': 'not-run'})
     # Keep the original package-install output schema and relative paths.
     files = m.inventory(stage)
+    chart_file = 'charts/' + receipt['chart']['file']
+    items = [{'format': 'chart', 'file': chart_file, 'name': 'tuwunel', 'version': version,
+              'valuesYaml': (ROOT / 'charts/tuwunel/values-vasi.example.yaml').read_text(),
+              'size': receipt['chart']['size'], 'sha256': files[chart_file]}]
+    items.extend({'format': 'image', 'file': row['file'], 'repository': row['repository'],
+                  'tag': row['tag'], 'digest': row['digest'], 'size': row['bytes'],
+                  'sha256': row['sha256']} for row in rows)
+    if cli:
+        items.append({key: cli[key] for key in ('format', 'file', 'name', 'version', 'platform', 'size', 'sha256')})
+    imported = {item['file'] for item in items}
+    m.write_json(stage / 'vasi-package.json', {'schema': 'vasi.package.v1', 'application': 'tuwunel',
+        'version': version, 'items': items, 'files': [
+            {'file': path, 'size': (stage / path).stat().st_size, 'sha256': sha}
+            for path, sha in sorted(files.items()) if path not in imported]})
+    files['vasi-package.json'] = m.sha(stage / 'vasi-package.json')
     m.write_json(stage / 'install-manifest.json', {'schema': 'tuwunel.install-materials.v1',
-        'development': channel == 'development', 'architecture': 'amd64',
+        'development': channel == 'development', 'architecture': architecture,
         'source': receipt['source'], 'chart': {**receipt['chart'], 'file': 'charts/' + receipt['chart']['file']},
         'images': rows, 'acceptance': {'materialAssembly': 'passed', 'clusterInstallation': 'not-run'},
         'files': [{'path': n, 'bytes': (stage / n).stat().st_size, 'sha256': h} for n, h in files.items()]})
     files['install-manifest.json'] = m.sha(stage / 'install-manifest.json')
     (stage / 'SHA256SUMS').write_text(''.join(f'{h}  {n}\n' for n, h in sorted(files.items())))
     m.verify_supported_tree(stage)
-    target = out / ('tuwunel-vasi-' + version + '-amd64.tar.gz')
+    target = out / ('tuwunel-vasi-' + version + '-' + architecture + '.tar.gz')
     m.pack(stage, target, archive_root='tuwunel-vasi')
     m.verify_archive(target)
     return {'archive': str(target), 'sha256': m.sha(target), 'bytes': target.stat().st_size, 'clusterInstallation': 'not-run'}
@@ -170,18 +197,45 @@ def build_local_image(out, version, channel):
         'installation': 'not-run', 'distributionImageLockUpdated': False})
 
 
+def build_arm64_image(out, requested_version):
+    server = next(row for row in chart_package.image_lock('arm64')['images'] if row['role'] == 'homeserver')
+    version = server['tag'].removeprefix('v')
+    revision = server['sourceRevision']
+    if requested_version and requested_version.removeprefix('v') != version:
+        raise ValueError(f'ARM64 homeserver source is pinned to version {version}')
+    with tempfile.TemporaryDirectory() as directory:
+        workspace = Path(directory)
+        source = workspace / 'source'
+        source.mkdir()
+        snapshot = workspace / 'source.tar'
+        run(['git', 'archive', '--format=tar', '--output', snapshot, revision])
+        with tarfile.open(snapshot) as archive:
+            archive.extractall(source, filter='data')
+        out.mkdir(parents=True)
+        artifact = out / 'homeserver-arm64.oci.tar'
+        run(['docker', 'buildx', 'build', '--platform', 'linux/arm64', '--provenance=false',
+             '--file', HERE / 'Dockerfile.homeserver-runtime',
+             '--build-arg', 'SERVER_VERSION=' + version, '--build-arg', 'SERVER_REVISION=' + revision,
+             '--output', 'type=oci,compression=gzip,dest=' + str(artifact), source])
+    identity = m.inspect_oci(artifact, details=True, architecture='arm64')
+    m.write_json(out / 'homeserver-image.json', {**identity, 'file': artifact.name,
+        'bytes': artifact.stat().st_size, 'sha256': m.sha(artifact), 'sourceCommit': revision,
+        'requestedVersion': version, 'architecture': 'arm64', 'distributionImageLockUpdated': False})
+
+
 def main(target, env=os.environ):
     if target == 'help':
         print('Targets: ' + ' '.join(TARGETS))
-        print('Inputs: VERSION CHANNEL=development|release ARCH=amd64 OUTPUT BASE_PACKAGE')
+        print('Inputs: VERSION CHANNEL=development|release ARCH=amd64|arm64 OUTPUT BASE_PACKAGE')
         print('package: MATERIALS; slim: FULL_PACKAGE + BASE_PACKAGE; verify: PACKAGE [BASE_PACKAGE] [OUTPUT]')
-        print('images builds this checkout homeserver using native Bake, local OCI only. materials exports pinned distribution dependencies.')
+        print('images builds a local OCI: checkout via native Bake (amd64), pinned maintenance source via Buildx (arm64).')
         print('TEST_SCOPE=contracts runs deployment regressions only; default all also runs Cargo workspace tests. See release/BUILD.md.')
         print('Dependencies: Python 3.11+, PyYAML, Git, Helm; check: Cargo/rustfmt; full test: pinned Rust toolchain/native libraries.')
         print('images: Bash, Docker Buildx and configured owo builder; materials: Skopeo. verify/slim: Python stdlib plus archive expansion disk.')
         print('VERSION defaults to Chart.yaml; images rejects + metadata; OUTPUT must be new/outside source. All outputs are local, no publish.')
         return
     version, channel = options(env)
+    architecture = env.get('ARCH', 'amd64')
     if target == 'check':
         run(['cargo', 'fmt', '--all', '--check'])
         run(['helm', 'lint', 'charts/tuwunel', '--values', 'charts/tuwunel/values-vasi.example.yaml'])
@@ -203,25 +257,40 @@ def main(target, env=os.environ):
     if target == 'package-slim':
         m.slim(required(env, 'FULL_PACKAGE'), required(env, 'BASE_PACKAGE'), out)
     elif target == 'package':
-        print(json.dumps(assemble(required(env, 'MATERIALS'), out, version, channel)))
+        print(json.dumps(assemble(required(env, 'MATERIALS'), out, version, channel, architecture)))
     elif target == 'chart':
         run(['helm', 'lint', 'charts/tuwunel', '--values', 'charts/tuwunel/values-vasi.example.yaml'])
         out.mkdir(parents=True)
-        chart_package.package(out, channel == 'development', version=version)
+        chart_package.package(out, channel == 'development', version=version, architecture=architecture)
     elif target == 'images':
-        build_local_image(out, version, channel)
+        if architecture == 'arm64':
+            build_arm64_image(out, env.get('VERSION'))
+        else:
+            build_local_image(out, version, channel)
     elif target == 'materials':
-        lock = json.loads((HERE / 'images-amd64.json').read_text())
+        lock = chart_package.image_lock(architecture)
         out.mkdir(parents=True)
         rows = []
         for row in lock['images']:
             dest = out / m.relative(row['file'])
             dest.parent.mkdir(parents=True, exist_ok=True)
-            run(['skopeo', 'copy', '--preserve-digests', '--override-os', 'linux', '--override-arch', 'amd64',
-                 'docker://' + row['repository'] + '@' + row['digest'], 'oci-archive:' + str(dest)])
-            identity = m.inspect_oci(dest, row['digest'], details=True)
+            if row.get('sourceArchive'):
+                run(['curl', '--fail', '--location', '--retry', '3', '--output', dest, row['sourceArchive']])
+                if dest.stat().st_size != row['bytes'] or m.sha(dest) != row['sha256']:
+                    raise ValueError('published OCI archive differs from lock')
+            else:
+                run(['skopeo', 'copy', '--preserve-digests', '--override-os', 'linux', '--override-arch', architecture,
+                     'docker://' + row.get('sourceRepository', row['repository']) + '@' + row['digest'], 'oci-archive:' + str(dest)])
+            identity = m.inspect_oci(dest, row['digest'], details=True, architecture=architecture)
             rows.append({**row, **identity, 'bytes': dest.stat().st_size, 'sha256': m.sha(dest)})
-        m.write_json(out / 'image-manifest.json', {'architecture': 'amd64', 'images': rows})
+        cli = lock.get('cli')
+        if cli:
+            dest = out / m.relative(cli['file'])
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            run(['curl', '--fail', '--location', '--retry', '3', '--output', dest, cli['sourceArchive']])
+            if dest.stat().st_size != cli['size'] or m.sha(dest) != cli['sha256']:
+                raise ValueError('published CLI archive differs from lock')
+        m.write_json(out / 'image-manifest.json', {'architecture': architecture, 'images': rows})
     else:
         raise ValueError('unsupported target')
 
