@@ -68,6 +68,8 @@ export default class ApeironTheme {
         applyRoomPolicy(this.api.config);
         document.head.append(stylesheet('theme.css'), stylesheet('components.css'));
         const { createElement, mountLogin, mountNavigation } = await import(asset('navigation.js'));
+        const { registerFileProgress } = await import(asset('download.js'));
+        registerFileProgress(this.api, createElement);
         registerLogin(mountLogin);
         this.api.customComponents.registerLoginComponent((props, original) =>
             createElement('apeiron-chat-login', null, original(props)));
