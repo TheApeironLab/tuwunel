@@ -6,10 +6,10 @@ ssoSessionBinding: false
 cpuRequest: 100m
 memoryRequest: 256Mi
 cpuLimit: '1'
-memoryLimit: 1Gi
+memoryLimit: 4Gi
 cacheCapacityModifier: 0.5
 dbPoolMaxWorkers: 64
-maxUploadSize: 50 MiB
+maxUploadSize: 1 GiB
 accessTokenTtl: 3600
 refreshTokenTtl: 604800
 backupsToKeep: 3

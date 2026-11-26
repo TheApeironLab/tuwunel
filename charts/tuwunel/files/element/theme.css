@@ -1,0 +1,284 @@
+/* Apeiron UI 0.1.105 semantic tokens, adapted to Element Web 1.12.30. */
+body.cpd-theme-light {
+    --apeiron-background: #f7f8fb;
+    --apeiron-surface: #ffffff;
+    --apeiron-foreground: #27313d;
+    --apeiron-muted: #5f646e;
+    --apeiron-primary: #0066ba;
+    --apeiron-secondary: #f5f6f8;
+    --apeiron-accent: #dfe4ed;
+    --apeiron-border: #e7eaef;
+    --apeiron-input: #dbdbdb;
+    --apeiron-ring: #0066ba;
+}
+body.cpd-theme-dark {
+    --apeiron-background: #131419;
+    --apeiron-surface: #191b22;
+    --apeiron-foreground: #e8eef5;
+    --apeiron-muted: #858a94;
+    --apeiron-primary: #0066ba;
+    --apeiron-secondary: #2c3340;
+    --apeiron-accent: #005499;
+    --apeiron-border: #222834;
+    --apeiron-input: #222834;
+    --apeiron-ring: #7eb6ee;
+}
+
+/* Compound controls, menus, dialogs and portals inherit these semantic roles. */
+body:is(.cpd-theme-light, .cpd-theme-dark) {
+    --apeiron-control-radius: 6px;
+    --apeiron-panel-radius: 12px;
+    --cpd-font-family-sans: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    --font-family: var(--cpd-font-family-sans);
+    --cpd-color-bg-canvas-default: var(--apeiron-surface);
+    --cpd-color-bg-subtle-primary: var(--apeiron-secondary);
+    --cpd-color-bg-subtle-secondary: var(--apeiron-background);
+    --cpd-color-text-primary: var(--apeiron-foreground);
+    --cpd-color-text-secondary: var(--apeiron-muted);
+    --cpd-color-icon-primary: var(--apeiron-foreground);
+    --cpd-color-icon-secondary: var(--apeiron-muted);
+    --cpd-color-border-subtle: var(--apeiron-border);
+    --cpd-color-separator-primary: var(--apeiron-border);
+    --cpd-color-border-interactive-secondary: var(--apeiron-input);
+    --cpd-color-border-focused: var(--apeiron-ring);
+    --cpd-color-border-accent-primary: var(--apeiron-primary);
+    --cpd-color-icon-accent-primary: var(--apeiron-ring);
+    --cpd-color-text-action-accent: var(--apeiron-ring);
+    --cpd-color-text-link-external: var(--apeiron-ring);
+    --cpd-color-bg-action-primary-rest: var(--apeiron-primary);
+    --cpd-color-bg-action-primary-hovered: color-mix(in srgb, var(--apeiron-primary) 87%, black);
+    --cpd-color-bg-action-primary-pressed: color-mix(in srgb, var(--apeiron-primary) 75%, black);
+    --cpd-color-text-on-solid-primary: white;
+    --cpd-color-icon-on-solid-primary: white;
+    --cpd-color-bg-action-secondary-rest: var(--apeiron-secondary);
+    --cpd-color-bg-action-tertiary-hovered: var(--apeiron-secondary);
+    --cpd-color-bg-action-tertiary-selected: var(--apeiron-accent);
+    --event-tile-bubble-background: var(--apeiron-secondary);
+    --event-tile-bubble-self-background: color-mix(in srgb, var(--apeiron-primary) 13%, var(--apeiron-surface));
+    font-family: var(--cpd-font-family-sans);
+    color: var(--apeiron-foreground);
+}
+
+/* Keep Element's high-contrast palettes, focus behavior and room-list geometry. */
+body:is(.cpd-theme-light, .cpd-theme-dark) :is(.mx_SpacePanel, .mx_LeftPanel, .mx_RoomListPanel) {
+    background-color: var(--apeiron-background);
+    border-color: var(--apeiron-border);
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) :is(.mx_RoomHeader, .mx_RightPanel, .mx_Dialog, .mx_ContextualMenu) {
+    background-color: var(--apeiron-surface);
+    color: var(--apeiron-foreground);
+    border-color: var(--apeiron-border);
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) :is(.mx_Dialog, .mx_ContextualMenu) {
+    border-radius: var(--apeiron-panel-radius);
+    box-shadow: 0 8px 32px rgb(10 25 45 / 15%), 0 0 0 1px var(--apeiron-border);
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_RoomHeader {
+    box-shadow: inset 0 -1px var(--apeiron-border);
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_RoomListItemView {
+    border-radius: var(--apeiron-control-radius);
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_RoomListItemView_selected {
+    background-color: var(--apeiron-accent);
+    box-shadow: inset 3px 0 var(--apeiron-ring);
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_MessageComposer_wrapper {
+    background-color: var(--apeiron-surface);
+    border-color: var(--apeiron-border);
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_MessageComposer_wrapper:focus-within {
+    border-color: var(--apeiron-ring);
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) :is(.mx_AccessibleButton_kind_primary, .mx_AccessibleButton_kind_secondary, button[data-kind]:not([data-icon-only]), .mx_Field input, .mx_Field textarea) {
+    border-radius: var(--apeiron-control-radius);
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_AccessibleButton_kind_primary:not(:disabled, [aria-disabled="true"], .mx_AccessibleButton_disabled) {
+    background-color: var(--apeiron-primary);
+    color: white;
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_AccessibleButton_kind_primary:not(:disabled, [aria-disabled="true"], .mx_AccessibleButton_disabled):hover {
+    background-color: var(--cpd-color-bg-action-primary-hovered);
+}
+
+/* The shared Apeiron sign-in treatment stays dark in both ordinary themes. */
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_AuthPage_modal { border-radius: 16px; }
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_AuthPage_modalContent {
+    border: 1px solid #384353;
+    --cpd-color-text-primary: #e8eef5;
+    --cpd-color-text-secondary: #bdc5d1;
+    --cpd-color-bg-canvas-default: #191b22;
+    --cpd-color-border-interactive-secondary: #667181;
+    --cpd-color-border-focused: #7eb6ee;
+    background-color: #191b22;
+    color: #e8eef5;
+    box-shadow: 0 18px 64px rgb(0 0 0 / 28%);
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_AuthPage_modalContent :is(.mx_AuthBody, .mx_AuthHeader) {
+    background: transparent;
+    color: #e8eef5;
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_AuthBody :is(h1, h2) { color: #e8eef5; }
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_AuthBody a { color: #7eb6ee; }
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_AuthBody .mx_Field input {
+    background-color: #191b22;
+    color: #e8eef5;
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .mx_AuthBody .mx_Field label {
+    color: #bdc5d1;
+    background-color: #191b22;
+}
+.mx_AuthHeaderLogo img { max-width: 100%; height: auto; }
+@media (max-width: 720px) {
+    :root:has(.mx_AuthPage) { overflow-x: clip; }
+    .mx_AuthPage .mx_AuthPage_modal { width: min(100% - 24px, 520px); }
+    .mx_AuthPage .mx_AuthPage_modalContent { flex-direction: column; width: 100%; }
+    .mx_AuthPage .mx_AuthBody { width: 100%; padding: 20px 24px 28px; }
+    .mx_AuthPage .mx_AuthHeader,
+    .mx_AuthPage .mx_AuthHeaderLogo { display: block; }
+    .mx_AuthPage .mx_AuthHeader { width: 160px; padding: 20px 24px 0; }
+}
+
+/* The LoginPage slot contains Element's original form, identity providers,
+   error messages, language selector and sync status. */
+apeiron-chat-login[data-ready] .mx_AuthPage {
+    height: auto; min-height: 0; overflow: visible;
+    background: transparent !important;
+}
+apeiron-chat-login[data-ready] .mx_AuthPage .mx_AuthPage_modal {
+    width: 100%; max-width: none; margin: 0; border: 0; box-shadow: none;
+}
+apeiron-chat-login[data-ready] .mx_AuthPage .mx_AuthPage_modalContent {
+    width: 100%; flex-direction: column; border: 0; border-radius: 0;
+    background: transparent; box-shadow: none;
+}
+apeiron-chat-login[data-ready] :is(.mx_AuthPage_modalBlur, .mx_AuthHeaderLogo, .mx_AuthFooter) { display: none; }
+apeiron-chat-login[data-ready] .mx_AuthPage .mx_AuthBody { width: 100%; max-width: none; padding: 0; }
+apeiron-chat-login[data-ready] .mx_AuthPage .mx_AuthHeader { display: flex; width: auto; padding: 0; align-self: end; }
+apeiron-chat-login[data-ready] .mx_AuthBody > h1 { font-size: 0; margin: 0; }
+apeiron-chat-login[data-ready] .mx_AuthBody :is(.mx_Login_submit, .mx_SSOButton, input[type=text], input[type=password]) {
+    min-height: 48px; border-radius: 6px; font-size: 16px;
+}
+apeiron-chat-login[data-ready] .mx_AuthBody :is(.mx_Login_submit, .mx_SSOButton) { width: 100%; }
+.ap-nav { flex: 0 0 auto; min-height: 0; height: 100%; font: 14px/1.5 system-ui,sans-serif; }
+.ap-brand { width: 115px; height: 25px; object-fit: contain; }
+.ap-nav [data-collapsed=true] .ap-brand { width: 60px; }
+body.cpd-theme-light .ap-brand { content: url("./wordmark-light.svg"); }
+
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace:not(.ap-directory)
+    :is([data-panel]:has(.mx_LeftPanel_outerWrapper), .mx_Separator) { display: none !important; }
+/* Popup triggers remain measurable while the native room directory is hidden. */
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace:not(.ap-directory) .mx_SpacePanel {
+    position: fixed; visibility: hidden; pointer-events: none; width: 0; height: 0; overflow: hidden;
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace:not(.ap-directory)
+    :is(.mx_UserMenu button, .mx_QuickSettingsButton) {
+    position: fixed; top: var(--ap-menu-y, 0); left: var(--ap-menu-x, 0);
+    width: var(--ap-menu-w, 32px); height: var(--ap-menu-h, 32px);
+}
+.ap-workspace.ap-directory .ap-nav { display: none; }
+.ap-directory-tools {
+    order: -1; display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between;
+    gap: 4px; padding: 8px; border-bottom: 1px solid var(--apeiron-border);
+}
+.ap-workspace.ap-directory .mx_LeftPanel_wrapper { min-height: 0; }
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace [data-panel]:has(.mx_RoomView_wrapper) { flex: 1 1 0 !important; }
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace {
+    background: var(--apeiron-background); -webkit-font-smoothing: antialiased;
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace .mx_RoomView_wrapper {
+    margin: 20px 24px; height: calc(100% - 40px); border: 1px solid var(--apeiron-border);
+    background: var(--apeiron-surface); border-radius: 12px;
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace .mx_RoomHeader { min-height: 60px; padding-inline: 20px; }
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace .mx_NewRoomIntro {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px;
+    padding: 12px 16px; margin: 12px 16px 18px; border: 1px solid var(--apeiron-border);
+    border-radius: 8px; background: var(--apeiron-background);
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace .mx_NewRoomIntro > h2 { margin: 0; font-size: 16px; }
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace .mx_NewRoomIntro > p { font-size: 13px; }
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace .mx_NewRoomIntro_buttons { margin: 0 0 0 auto; }
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace .mx_MessageComposer_wrapper {
+    margin: 8px 16px 14px; border: 1px solid var(--apeiron-input); border-radius: 8px;
+}
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace .mx_MessageComposer_wrapper:focus-within { border-color: var(--apeiron-ring); }
+body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace .mx_MessageComposer { padding-bottom: 0; }
+body:is(.cpd-theme-light-hc, .cpd-theme-dark-hc) .ap-nav { display: none; }
+@media (max-width: 767px) {
+    .ap-workspace { flex-direction: column; }
+    .ap-nav { height: auto; }
+    .ap-workspace > [data-group], .ap-workspace > [data-panel-group] { flex: 1; min-height: 0; }
+    body:is(.cpd-theme-light, .cpd-theme-dark) .ap-workspace .mx_RoomView_wrapper {
+        margin: 0; height: 100%; border-radius: 0; border: 0;
+    }
+    .ap-workspace.ap-directory [data-panel]:has(.mx_RoomView_wrapper) { display: none !important; }
+    .ap-workspace.ap-directory [data-panel]:has(.mx_LeftPanel_outerWrapper) { flex: 1 1 0 !important; }
+}
+
+/* Put the native language switcher in the page header, as in Limani. */
+apeiron-chat-login[data-ready] .mx_AuthPage .mx_AuthHeader {
+    position: fixed; top: 100px; right: 72px; z-index: 4;
+}
+apeiron-chat-login[data-ready] .mx_AuthBody_language { color: #e8eef5; }
+apeiron-chat-login[data-ready] .mx_AuthBody_language .mx_Dropdown_menu {
+    background-color: #191b22; color: #e8eef5;
+}
+/* The Chart pins a single homeserver. Keep the picker when it offers an action. */
+apeiron-chat-login[data-ready] .mx_ServerPicker:not(:has(button, a, [role=button])) { display: none; }
+apeiron-chat-login[data-ready] .mx_AuthBody .mx_Field input {
+    font-size: 14px; padding: 0 14px; border: 1px solid #384353;
+}
+apeiron-chat-login[data-ready] .mx_AuthBody .mx_Field input:is(:focus, :hover) { border-color: #0066ba; }
+apeiron-chat-login[data-ready] .mx_AuthBody .mx_Field:has(input[placeholder]:not([placeholder=""])) label {
+    position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%);
+}
+apeiron-chat-login[data-ready] .mx_AuthBody .mx_Field input::placeholder { color: #858a94; opacity: 1; }
+@media (min-width: 1280px) {
+    apeiron-chat-login[data-ready] .mx_AuthPage .mx_AuthHeader { right: 160px; }
+}
+@media (max-width: 1023px) {
+    apeiron-chat-login[data-ready] .mx_AuthPage .mx_AuthHeader { top: 32px; right: 24px; }
+}
+
+apeiron-chat-login[data-ready] .mx_AuthBody form:has(input[autocomplete="current-password"]) {
+    display: grid; gap: 20px;
+}
+apeiron-chat-login[data-ready] .mx_AuthBody form :is(.mx_Field, .mx_Login_submit) { margin: 0; }
+apeiron-chat-login[data-ready] .mx_AuthBody .mx_Field:has(input) { border: 0; }
+apeiron-chat-login[data-ready] .mx_AuthBody .mx_Field.mx_Field_invalid input { border-color: #e82825; }
+apeiron-chat-login[data-ready] .mx_AuthBody:has(input[name=username]) .mx_SSOButtons { margin-top: 20px; }
+apeiron-chat-login[data-ready] .mx_SSOButton[data-kind=secondary] { background: #222834; color: #bdc5d1; }
+apeiron-chat-login[data-ready] .mx_AuthBody .mx_Field input {
+    height: 48px; box-sizing: border-box; border-color: #222834;
+}
+apeiron-chat-login[data-ready] .mx_AuthBody .mx_Field input[autocomplete="current-password"] { padding-right: 44px; }
+apeiron-chat-login[data-ready] .ap-password-toggle {
+    position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    display: grid; place-items: center; width: 36px; height: 36px;
+    border: 0; background: transparent; color: #858a94; cursor: pointer;
+}
+.ap-password-toggle svg, .ap-language-icon { width: 17px; height: 17px; }
+.ap-password-toggle:focus-visible { outline: 2px solid #7eb6ee; border-radius: 4px; }
+apeiron-chat-login[data-ready] .mx_AuthBody_language .mx_Dropdown_input {
+    box-sizing: border-box; width: 116px; height: 32px; padding: 0 25px 0 30px;
+    border: 1px solid #222834; border-radius: 6px; background: #191b22; color: #bdc5d1;
+    font: 13px/1.4 system-ui, sans-serif;
+}
+.ap-language-icon { position: absolute; left: 8px; color: #858a94; pointer-events: none; }
+
+/* Element strips data-testid from the release image. Scope to production
+   controls so device management and room permissions remain accessible. */
+.ap-plaintext :is(
+    [role="tab"][aria-controls="mx_tabpanel_USER_ENCRYPTION_TAB"],
+    .mx_SettingsSubsection:has(.mx_LoginWithQRSection),
+    .mx_DeviceSecurityCard:has(.mx_DeviceSecurityCard_icon:is(.Verified, .Unverified, .Unverifiable)),
+    .mx_SettingsSubsection:has(> .mx_SettingsSubsection_content > .mx_DeviceSecurityCard:only-child .Unverified),
+    .mx_SettingsSubsection:has(.mx_FilteredDeviceList) > .mx_SettingsSubsection_description,
+    .mx_DeviceTypeIcon_verificationIcon,
+    .mx_DeviceTile_metadata > span:first-child:not(:has(.mx_DeviceTile_inactiveIcon)),
+    .mx_SecurityUserSettingsTab_warning,
+    .mx_UserInfo_startVerification,
+    .mx_CreateRoomDialog .mx_Dialog_content > form > div:has(> div input[role="switch"]:disabled):not(:has(form)),
+    #mx_tabpanel_ROOM_SECURITY_TAB fieldset.mx_SettingsFieldset:first-of-type:has(input[role="switch"]:disabled)
+) { display: none !important; }

@@ -1,0 +1,9 @@
+:host { display: block; height: 100%; overflow: auto; background: #000; }
+.ap-scope { font: 16px/1.5 system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+/* The Beams canvas has an alpha channel. Limani composites it on pure black. */
+.beams-container { background-color: #000; }
+/* The shared renderer sets the canvas dimensions only after WebGL2 initializes. */
+.beams-container:not(:has(canvas[width])) {
+    background-image: repeating-linear-gradient(150deg,
+        #000 0, #030507 56px, #1a222d 124px, #080b10 167px, #010203 185px);
+}
