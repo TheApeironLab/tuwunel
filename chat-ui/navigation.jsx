@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Sidebar, Button } from '@apeiron/ui';
-import { Hash, MessagesSquare, Search, Settings, UserRound } from 'lucide-react';
+import { Hash, LogOut, MessagesSquare, Search, Settings, UserRound } from 'lucide-react';
 
 export { createElement } from 'react';
 export { mountLogin } from './login';
@@ -34,8 +34,23 @@ function useRooms(store) {
     return rooms;
 }
 
+function afterDrawerCloses(activate) {
+    // Let the mobile drawer release its focus trap before opening a native menu.
+    const drawer = document.querySelector('[role="dialog"]:has([data-sidebar-trigger])');
+    if (!drawer) { activate(); return; }
+    const observer = new MutationObserver(() => {
+        if (drawer.isConnected) return;
+        observer.disconnect();
+        activate();
+    });
+    observer.observe(drawer.parentNode, { childList: true });
+    drawer.querySelector('[data-sidebar-trigger]').click();
+}
+
 function ChatNavigation({ api, workspace }) {
     const rooms = useRooms(api.stores.roomListStore);
+    const pendingSignOut = useRef(null);
+    useEffect(() => () => pendingSignOut.current?.(), []);
     const [route, setRoute] = useState(location.hash);
     const [directory, setDirectory] = useState(false);
     const [collapsed, setCollapsed] = useState(false);
@@ -85,16 +100,32 @@ function ChatNavigation({ api, workspace }) {
                 } else control.click();
             });
         };
-        // Let the mobile drawer release its focus trap before opening a native menu.
-        const drawer = document.querySelector('[role="dialog"]:has([data-sidebar-trigger])');
-        if (!drawer) { activate(); return; }
-        const observer = new MutationObserver(() => {
-            if (drawer.isConnected) return;
-            observer.disconnect();
-            activate();
+        afterDrawerCloses(activate);
+    }
+    function openSignOut() {
+        afterDrawerCloses(() => {
+            if (!workspace.isConnected || pendingSignOut.current) return;
+            // Element's module API has no sign-out method. Use the account tab's
+            // own action so Element keeps its device recovery and logout flow.
+            const selector = '.mx_UserSettingsDialog .mx_UserProfileSettings_profile_buttons .mx_AccessibleButton_kind_danger_outline';
+            const observer = new MutationObserver(() => {
+                const button = document.querySelector(selector);
+                if (!button || !workspace.isConnected) return;
+                stop();
+                const closeSettings = button.closest('.mx_UserSettingsDialog').querySelector('.mx_Dialog_cancelButton');
+                button.click();
+                closeSettings?.click();
+            });
+            const timeout = setTimeout(stop, 5000);
+            function stop() {
+                observer.disconnect();
+                clearTimeout(timeout);
+                pendingSignOut.current = null;
+            }
+            pendingSignOut.current = stop;
+            observer.observe(document.body, { childList: true, subtree: true });
+            window.mxDispatcher.dispatch({ action: 'view_user_settings', initialTabId: 'USER_ACCOUNT_TAB' });
         });
-        observer.observe(drawer.parentNode, { childList: true });
-        drawer.querySelector('[data-sidebar-trigger]').click();
     }
     return <Sidebar aria-label={text('会话导航', 'Chat navigation')}
         collapsed={collapsed} onCollapsedChange={setCollapsed}
@@ -107,13 +138,19 @@ function ChatNavigation({ api, workspace }) {
             showDirectory(false);
             api.navigation.openRoom(key);
         }}
-        footer={<div className="flex items-center justify-between gap-1">
-            <Button variant="ghost" icon={<UserRound />} iconOnly={collapsed}
-                aria-label={text('账户', 'Account')} onClick={() => openNative('.mx_UserMenu button')}>
-                {collapsed ? undefined : text('账户', 'Account')}
+        footer={<div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between gap-1">
+                <Button variant="ghost" icon={<UserRound />} iconOnly={collapsed}
+                    aria-label={text('账户', 'Account')} onClick={() => openNative('.mx_UserMenu button')}>
+                    {collapsed ? undefined : text('账户', 'Account')}
+                </Button>
+                {!collapsed && <Button variant="ghost" iconOnly icon={<Settings />}
+                    aria-label={text('快速设置', 'Quick settings')} onClick={() => openNative('.mx_QuickSettingsButton')} />}
+            </div>
+            <Button variant="ghost" icon={<LogOut />} iconOnly={collapsed}
+                aria-label={text('退出登录', 'Sign out')} onClick={openSignOut}>
+                {collapsed ? undefined : text('退出登录', 'Sign out')}
             </Button>
-            {!collapsed && <Button variant="ghost" iconOnly icon={<Settings />}
-                aria-label={text('快速设置', 'Quick settings')} onClick={() => openNative('.mx_QuickSettingsButton')} />}
         </div>}
     />;
 }
