@@ -4909,6 +4909,18 @@ pub struct IdentityProvider {
 	/// example: "/etc/tuwunel/.client_secret"
 	pub client_secret_file: Option<PathBuf>,
 
+	/// Confidential Keycloak clients allowed to exchange a user grant for Chat agent access.
+	///
+	/// default: []
+	#[serde(default)]
+	pub agent_broker_clients: Vec<String>,
+
+	/// Tenant binding for agent grants from this provider.
+	///
+	/// default: ""
+	#[serde(default)]
+	pub agent_tenant: String,
+
 	/// Issuer URL the provider publishes for you. We have pre-supplied default
 	/// values for some of the canonical public providers, making this field
 	/// optional based on the `brand` set above. Otherwise it is required to

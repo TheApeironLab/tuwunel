@@ -26,6 +26,17 @@ chat whoami
 
 和 Limani 的宿主令牌文件模式类似，宿主也可以向 agent 提供 `CHAT_SERVER` 和 `CHAT_TOKEN_FILE`。此时清除 `CHAT_SESSION`，以绝对路径指定仅当前用户可读的普通文件，内容为该站点签发或接受的单个 **Matrix access token**。CLI 每次发起 Matrix 请求前读取文件，宿主负责替换过期令牌。Keycloak ID token 和浏览器 cookie 不能用作 Matrix access token。
 
+## 在 Apeiron 云会话里使用 SSO
+
+在接入委托登录的站点，成员首次通过站点 SSO 打开一次 Chat，建立 Matrix 账号关联。之后打开 Apeiron 的 Chat 会话，用包含 Chat 子命令的发行包运行：
+
+```sh
+./apeiron chat whoami
+./apeiron chat rooms
+```
+
+Vasi 为该站点配置 Chat 的成员角色、委托客户端和 homeserver 地址。Apeiron 将成员凭据交给 Tuwunel 换取最长五分钟有效的 Matrix 访问令牌，并在云会话里维护 `CHAT_SERVER` 和 `CHAT_TOKEN_FILE`。退出 Apeiron 或失去 Chat 权限后，Apeiron 停止续期并移除凭据文件。
+
 ## 消息和附件
 
 ```sh

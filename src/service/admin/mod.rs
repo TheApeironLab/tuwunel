@@ -366,17 +366,8 @@ impl Service {
 			.ok_or_else(|| err!("server user is not joined to the configured report room"))
 	}
 
-	/// Returns whether a message event is an admin command to run.
-	///
-	/// Only an `m.text` from an admin qualifies: prefixed with `!admin` or the
-	/// server user's ID in the admin room, or escaped as `\!admin` by a local
-	/// admin anywhere when escape commands are enabled. The server user's own
-	/// messages in the admin room are refused unless the emergency password is
-	/// set.
-	pub async fn is_admin_command<Pdu>(&self, event: &Pdu, body: &str) -> bool
-	where
-		Pdu: Event,
-	{
+	/// Classify command prefixes before accepting text from a scoped agent device.
+	pub fn command_prefix(&self, body: &str) -> (bool, bool) {
 		let body = body.trim_start();
 
 		// Server-side command-escape with public echo
@@ -390,6 +381,23 @@ impl Service {
 		let server_user = &self.services.globals.server_user;
 		let is_public_prefix =
 			body.starts_with("!admin") || body.starts_with(server_user.as_str());
+
+		(is_public_escape, is_public_prefix)
+	}
+
+	/// Returns whether a message event is an admin command to run.
+	///
+	/// Only an `m.text` from an admin qualifies: prefixed with `!admin` or the
+	/// server user's ID in the admin room, or escaped as `\!admin` by a local
+	/// admin anywhere when escape commands are enabled. The server user's own
+	/// messages in the admin room are refused unless the emergency password is
+	/// set.
+	pub async fn is_admin_command<Pdu>(&self, event: &Pdu, body: &str) -> bool
+	where
+		Pdu: Event,
+	{
+		let (is_public_escape, is_public_prefix) = self.command_prefix(body);
+		let server_user = &self.services.globals.server_user;
 
 		// Expected backward branch
 		if !is_public_escape && !is_public_prefix {
